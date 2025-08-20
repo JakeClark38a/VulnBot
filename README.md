@@ -140,6 +140,7 @@ If you have any questions or suggestions, please open an issue on GitHub. Contri
 
 ## Patched
 If "btw i use nixos" user read this, this is for you.
+If not, install `nix` in linux/wsl/macos. Link: https://nixos.org/download/ or setup MySQL manually in other distro.
 Pick shell.nix and add these lines:
 ```nix
 { pkgs ? import <nixpkgs> { config.allowUnfree = true; } }:
@@ -176,6 +177,8 @@ pkgs.mkShell {
 }
 
 Then edit db_config.yaml to match your MySQL settings, including socket location after `nix-shell --run "bash"`.
+
+Start database with command at "To start: mysqld ...", and use socket path instead of username/password
 
 Run these commands to setup db `nix-shell --run "mysql --socket=<socket-path-showed-above>/.mysql/mysql.sock -u root -e 'CREATE DATABASE IF NOT EXISTS vulnbot_db;'"`
 
