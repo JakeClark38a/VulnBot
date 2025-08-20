@@ -208,12 +208,12 @@ def update_docs(
                     )
                 )
             except Exception as e:
-                msg = f"加载文档 {file_name} 时出错：{e}"
+                msg = f"Error loading document {file_name}: {e}"
                 logger.error(f"{e.__class__.__name__}: {msg}")
                 failed_files[file_name] = msg
 
-    # 从文件生成docs，并进行向量化。
-    # 这里利用了KnowledgeFile的缓存功能，在多线程中加载Document，然后传给KnowledgeFile
+    # Generate docs from files and vectorize.
+    # This uses KnowledgeFile's caching functionality to load Documents in multiple threads, then pass to KnowledgeFile
     for status, result in files2docs_in_thread(
             kb_files,
             chunk_size=chunk_size,
@@ -239,7 +239,7 @@ def update_docs(
             )
             kb.update_doc(kb_file, docs=v, not_refresh_vs_cache=True)
         except Exception as e:
-            msg = f"为 {file_name} 添加自定义docs时出错：{e}"
+            msg = f"Error adding custom docs for {file_name}: {e}"
             logger.error(f"{e.__class__.__name__}: {msg}")
             failed_files[file_name] = msg
 
@@ -247,7 +247,7 @@ def update_docs(
         kb.save_vector_store()
 
     return BaseResponse(
-        code=200, msg=f"更新文档完成", data={"failed_files": failed_files}
+        code=200, msg=f"Document update completed", data={"failed_files": failed_files}
     )
 
 

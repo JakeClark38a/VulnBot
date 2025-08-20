@@ -1,12 +1,22 @@
+"""Utilities for the Web UI to interact with backend API services.
+
+This module exposes a thin wrapper around httpx (sync + async) to simplify
+calling the FastAPI endpoints used by the Streamlit Web UI. It previously
+contained Chinese log / error messages which have been translated to English.
+The file was corrupted during a bulk translation step and has been fully
+reconstructed here.
+"""
+
+from __future__ import annotations
 
 import contextlib
 import json
 import os
 from io import BytesIO
 from pathlib import Path
-from typing import *
+from typing import Any, Callable, Dict, Iterator, List, Tuple, Union
+
 import httpx
-import loguru
 
 from config.config import Configs
 from server.utils.utils import get_httpx_client, api_address
@@ -15,8 +25,14 @@ from utils.log_common import build_logger
 logger = build_logger()
 
 class ApiRequest:
-    """
-    api.py调用的封装（同步模式）,简化api调用方式
+    """Synchronous helper for calling backend API endpoints.
+
+    Attributes
+    ----------
+    base_url: str
+        Base API address (protocol + host + port).
+    timeout: float
+        Default timeout passed to httpx client.
     """
 
     def __init__(
@@ -106,11 +122,13 @@ class ApiRequest:
         response: contextlib._GeneratorContextManager,
         as_json: bool = False,
     ):
-        """
-        将httpx.stream返回的GeneratorContextManager转化为普通生成器
+        """Convert the httpx.stream context manager into a plain generator.
+
+        Handles SSE style lines that may start with 'data: ' and accumulates
+        partial JSON fragments until they parse successfully.
         """
 
-        async def ret_async(response, as_json):
+        async def ret_async(response, as_json):  # type: ignore
             try:
                 async with response as r:
                     chunk_cache = ""
@@ -125,13 +143,12 @@ class ApiRequest:
                                     continue
                                 else:
                                     data = json.loads(chunk_cache + chunk)
-
+                                # success -> clear cache
                                 chunk_cache = ""
                                 yield data
                             except Exception as e:
-                                msg = f"接口返回json错误： ‘{chunk}’。错误信息是：{e}。"
+                                msg = f"Interface returned JSON error: '{chunk}'. Error: {e}."
                                 logger.error(f"{e.__class__.__name__}: {msg}")
-
                                 if chunk.startswith("data: "):
                                     chunk_cache += chunk[6:-2]
                                 elif chunk.startswith(":"):  # skip sse comment line
@@ -143,19 +160,23 @@ class ApiRequest:
                             # print(chunk, end="", flush=True)
                             yield chunk
             except httpx.ConnectError as e:
-                msg = f"无法连接API服务器，请确认 ‘api.py’ 已正常启动。({e})"
+                msg = f"Unable to connect to API server, please confirm 'api.py' is running. ({e})"
                 logger.error(msg)
                 yield {"code": 500, "msg": msg}
             except httpx.ReadTimeout as e:
-                msg = f"API通信超时，请确认已启动FastChat与API服务（详见Wiki '5. 启动 API 服务或 Web UI'）。（{e}）"
+                msg = (
+                    "API communication timeout, please ensure FastChat and API services are started "
+                    "(see Wiki '5. Start API Service or Web UI'). "
+                    f"({e})"
+                )
                 logger.error(msg)
                 yield {"code": 500, "msg": msg}
             except Exception as e:
-                msg = f"API通信遇到错误：{e}"
+                msg = f"API communication encountered an error: {e}"
                 logger.error(f"{e.__class__.__name__}: {msg}")
                 yield {"code": 500, "msg": msg}
 
-        def ret_sync(response, as_json):
+        def ret_sync(response, as_json):  # type: ignore
             try:
                 with response as r:
                     chunk_cache = ""
@@ -170,13 +191,12 @@ class ApiRequest:
                                     continue
                                 else:
                                     data = json.loads(chunk_cache + chunk)
-
+                                # success -> clear cache
                                 chunk_cache = ""
                                 yield data
                             except Exception as e:
-                                msg = f"接口返回json错误： ‘{chunk}’。错误信息是：{e}。"
+                                msg = f"Interface returned JSON error: '{chunk}'. Error: {e}."
                                 logger.error(f"{e.__class__.__name__}: {msg}")
-
                                 if chunk.startswith("data: "):
                                     chunk_cache += chunk[6:-2]
                                 elif chunk.startswith(":"):  # skip sse comment line
@@ -188,15 +208,19 @@ class ApiRequest:
                             # print(chunk, end="", flush=True)
                             yield chunk
             except httpx.ConnectError as e:
-                msg = f"无法连接API服务器，请确认 ‘api.py’ 已正常启动。({e})"
+                msg = f"Unable to connect to API server, please confirm 'api.py' is running. ({e})"
                 logger.error(msg)
                 yield {"code": 500, "msg": msg}
             except httpx.ReadTimeout as e:
-                msg = f"API通信超时，请确认已启动FastChat与API服务（详见Wiki '5. 启动 API 服务或 Web UI'）。（{e}）"
+                msg = (
+                    "API communication timeout, please ensure FastChat and API services are started "
+                    "(see Wiki '5. Start API Service or Web UI'). "
+                    f"({e})"
+                )
                 logger.error(msg)
                 yield {"code": 500, "msg": msg}
             except Exception as e:
-                msg = f"API通信遇到错误：{e}"
+                msg = f"API communication encountered an error: {e}"
                 logger.error(f"{e.__class__.__name__}: {msg}")
                 yield {"code": 500, "msg": msg}
 
@@ -211,17 +235,22 @@ class ApiRequest:
         as_json: bool = False,
         value_func: Callable = None,
     ):
-        """
-        转换同步或异步请求返回的响应
-        `as_json`: 返回json
-        `value_func`: 用户可以自定义返回值，该函数接受response或json
+        """Normalize sync/async httpx responses.
+
+        Parameters
+        ----------
+        response: httpx.Response | Awaitable[httpx.Response]
+        as_json: bool
+            If True, attempt to parse JSON.
+        value_func: Callable
+            Function applied to response (or parsed JSON) before returning.
         """
 
         def to_json(r):
             try:
                 return r.json()
             except Exception as e:
-                msg = "API未能返回正确的JSON。" + str(e)
+                msg = "API failed to return valid JSON. " + str(e)
                 logger.error(f"{e.__class__.__name__}: {msg}")
                 return {"code": 500, "msg": msg, "data": None}
 
@@ -243,14 +272,9 @@ class ApiRequest:
                 return value_func(response)
 
 
-    # 知识库相关操作
-
-    def list_knowledge_bases(
-        self,
-    ):
-        """
-        对应api.py/knowledge_base/list_knowledge_bases接口
-        """
+    # Knowledge base operations
+    def list_knowledge_bases(self) -> List[str]:
+        """List existing knowledge bases."""
         response = self.get("/knowledge_base/list_knowledge_bases")
         return self._get_response_value(
             response, as_json=True, value_func=lambda r: r.get("data", [])
@@ -262,41 +286,28 @@ class ApiRequest:
         vector_store_type: str = Configs.kb_config.default_vs_type,
         embed_model: str = Configs.llm_config.embedding_models,
     ):
-        """
-        对应api.py/knowledge_base/create_knowledge_base接口
-        """
+        """Create a new knowledge base."""
         data = {
             "knowledge_base_name": knowledge_base_name,
             "vector_store_type": vector_store_type,
             "embed_model": embed_model,
         }
-
         response = self.post(
             "/knowledge_base/create_knowledge_base",
             json=data,
         )
         return self._get_response_value(response, as_json=True)
 
-    def delete_knowledge_base(
-        self,
-        knowledge_base_name: str,
-    ):
-        """
-        对应api.py/knowledge_base/delete_knowledge_base接口
-        """
+    def delete_knowledge_base(self, knowledge_base_name: str):
+        """Delete a knowledge base by name."""
         response = self.post(
             "/knowledge_base/delete_knowledge_base",
             json=f"{knowledge_base_name}",
         )
         return self._get_response_value(response, as_json=True)
 
-    def list_kb_docs(
-        self,
-        knowledge_base_name: str,
-    ):
-        """
-        对应api.py/knowledge_base/list_files接口
-        """
+    def list_kb_docs(self, knowledge_base_name: str):
+        """List documents in a knowledge base."""
         response = self.get(
             "/knowledge_base/list_files",
             params={"knowledge_base_name": knowledge_base_name},
@@ -314,9 +325,7 @@ class ApiRequest:
         file_name: str = "",
         metadata: dict = {},
     ) -> List:
-        """
-        对应api.py/knowledge_base/search_docs接口
-        """
+        """Semantic search against knowledge base documents."""
         data = {
             "query": query,
             "knowledge_base_name": knowledge_base_name,
@@ -325,7 +334,6 @@ class ApiRequest:
             "file_name": file_name,
             "metadata": metadata,
         }
-
         response = self.post(
             "/knowledge_base/search_docs",
             json=data,
@@ -343,9 +351,7 @@ class ApiRequest:
         docs: Dict = {},
         not_refresh_vs_cache: bool = False,
     ):
-        """
-        对应api.py/knowledge_base/upload_docs接口
-        """
+        """Upload (and optionally vectorize) documents to a knowledge base."""
 
         def convert_file(file, filename=None):
             if isinstance(file, bytes):  # raw bytes
@@ -367,7 +373,6 @@ class ApiRequest:
             "docs": docs,
             "not_refresh_vs_cache": not_refresh_vs_cache,
         }
-
         if isinstance(data["docs"], dict):
             data["docs"] = json.dumps(data["docs"], ensure_ascii=False)
         response = self.post(
@@ -384,31 +389,22 @@ class ApiRequest:
         delete_content: bool = False,
         not_refresh_vs_cache: bool = False,
     ):
-        """
-        对应api.py/knowledge_base/delete_docs接口
-        """
+        """Delete documents (and optionally underlying content) from a knowledge base."""
         data = {
             "knowledge_base_name": knowledge_base_name,
             "file_names": file_names,
             "delete_content": delete_content,
             "not_refresh_vs_cache": not_refresh_vs_cache,
         }
-
         response = self.post(
             "/knowledge_base/delete_docs",
             json=data,
         )
         return self._get_response_value(response, as_json=True)
 
-    def update_kb_info(self, knowledge_base_name, kb_info):
-        """
-        对应api.py/knowledge_base/update_info接口
-        """
-        data = {
-            "knowledge_base_name": knowledge_base_name,
-            "kb_info": kb_info,
-        }
-
+    def update_kb_info(self, knowledge_base_name: str, kb_info: Dict[str, Any]):
+        """Update metadata / info for a knowledge base."""
+        data = {"knowledge_base_name": knowledge_base_name, "kb_info": kb_info}
         response = self.post(
             "/knowledge_base/update_info",
             json=data,
@@ -425,9 +421,7 @@ class ApiRequest:
         docs: Dict = {},
         not_refresh_vs_cache: bool = False,
     ):
-        """
-        对应api.py/knowledge_base/update_docs接口
-        """
+        """Re-chunk or re-vectorize existing documents in a knowledge base."""
         data = {
             "knowledge_base_name": knowledge_base_name,
             "file_names": file_names,
@@ -437,10 +431,8 @@ class ApiRequest:
             "docs": docs,
             "not_refresh_vs_cache": not_refresh_vs_cache,
         }
-
         if isinstance(data["docs"], dict):
             data["docs"] = json.dumps(data["docs"], ensure_ascii=False)
-
         response = self.post(
             "/knowledge_base/update_docs",
             json=data,
@@ -450,17 +442,19 @@ class ApiRequest:
 
 
 class AsyncApiRequest(ApiRequest):
+    """Asynchronous variant of ApiRequest."""
+
     def __init__(
-        self, base_url: str = api_address(), timeout: float = Configs.basic_config.http_default_timeout
+        self,
+        base_url: str = api_address(),
+        timeout: float = Configs.basic_config.http_default_timeout,
     ):
         super().__init__(base_url, timeout)
         self._use_async = True
 
 
 def check_error_msg(data: Union[str, dict, list], key: str = "errorMsg") -> str:
-    """
-    return error message if error occured when requests API
-    """
+    """Return error message if an error occurred when requesting the API."""
     if isinstance(data, dict):
         if key in data:
             return data[key]
@@ -470,9 +464,7 @@ def check_error_msg(data: Union[str, dict, list], key: str = "errorMsg") -> str:
 
 
 def check_success_msg(data: Union[str, dict, list], key: str = "msg") -> str:
-    """
-    return error message if error occured when requests API
-    """
+    """Return success message (msg field) if present and code == 200."""
     if (
         isinstance(data, dict)
         and key in data
@@ -485,6 +477,7 @@ def check_success_msg(data: Union[str, dict, list], key: str = "msg") -> str:
 
 
 def webui_address() -> str:
+    """Return configured Web UI base address."""
     host = Configs.basic_config.webui_server["host"]
     port = Configs.basic_config.webui_server["port"]
     return f"http://{host}:{port}"

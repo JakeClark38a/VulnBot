@@ -180,7 +180,7 @@ def get_loader(loader_name: str, file_path: str, loader_kwargs: Dict = None):
             )
         DocumentLoader = getattr(document_loaders_module, loader_name)
     except Exception as e:
-        msg = f"为文件{file_path}查找加载器{loader_name}时出错：{e}"
+        msg = f"Error finding loader {loader_name} for file {file_path}: {e}"
         logger.error(f"{e.__class__.__name__}: {msg}")
         document_loaders_module = importlib.import_module(
             "langchain_unstructured"
@@ -212,7 +212,7 @@ def get_loader(loader_name: str, file_path: str, loader_kwargs: Dict = None):
 @lru_cache()
 def make_text_splitter(splitter_name, chunk_size, chunk_overlap):
     """
-    根据参数获取特定的分词器
+    Get specific text splitter based on parameters
     """
     splitter_name = splitter_name or "SpacyTextSplitter"
     try:
@@ -373,7 +373,7 @@ def files2docs_in_thread_file2docs(
     try:
         return True, (file.kb_name, file.filename, file.file2text(**kwargs))
     except Exception as e:
-        msg = f"从文件 {file.kb_name}/{file.filename} 加载文档时出错：{e}"
+        msg = f"Error loading documents from file {file.kb_name}/{file.filename}: {e}"
         logger.error(f"{e.__class__.__name__}: {msg}")
         return False, (file.kb_name, file.filename, msg)
 

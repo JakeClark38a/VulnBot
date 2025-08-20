@@ -2,7 +2,7 @@ from typing import List
 
 from pydantic import BaseModel, Field
 from pydantic.class_validators import validator
-from sqlalchemy import Column, String
+from sqlalchemy import Column, String, Text
 
 from utils.session import Base
 
@@ -11,7 +11,8 @@ class SessionModel(Base):
     __tablename__ = "sessions"
     id = Column(String(32), primary_key=True)
     name = Column(String(50))
-    init_description = Column(String(512))
+    # Increased from String(512) to Text to avoid DataError on long descriptions
+    init_description = Column(Text)
     current_role_name = Column(String(50))
     current_planner_id = Column(String(32), index=True)
     history_planner_ids = Column(String(256))

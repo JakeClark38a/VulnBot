@@ -75,7 +75,11 @@ class OllamaChat(ABC):
 
 def _chat(query: str, kb_name=None, conversation_id=None, kb_query=None, summary=True):
     try:
-        if Configs.basic_config.enable_rag and kb_name is not None:
+        if (
+            Configs.basic_config.enable_knowledge_base
+            and Configs.basic_config.enable_rag
+            and kb_name is not None
+        ):
             docs = asyncio.run(run_in_threadpool(search_docs,
                                                  query=kb_query,
                                                  knowledge_base_name=kb_name,

@@ -17,7 +17,13 @@ class WriteCode(BaseModel):
     def run(self):
 
         logger.info(f"next_task: {self.next_task}")
-        response, _ = _chat(query=DeepPentestPrompt.write_code.format(next_task=self.next_task))
+        
+        # Use a fresh conversation for code generation to avoid contamination
+        response, _ = _chat(
+            query=DeepPentestPrompt.write_code.format(next_task=self.next_task),
+            conversation_id=None,  # Fresh conversation to avoid cross-contamination
+            summary=False
+        )
         logger.info(f"LLM Response: {response}")
 
         code_executor = ExecuteTask(action=self.action, instruction=response, code=[])

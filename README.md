@@ -66,9 +66,29 @@ Install VulnBot using one of the following methods:
 Before initializing VulnBot, you need to configure system settings. Refer to the [Configuration Guide](Configuration%20Guide.md) for detailed instructions on modifying:
 
 - **Kali Linux configuration** (hostname, port, username, password)
-- **MySQL database settings** (host, port, user, password, database)
+- **MySQL database settings** (host, port, user, password, database, socket support)
 - **LLM settings** (base_url, llm_model_name, api_key)
 - **Enabling RAG** (set `enable_rag` to `true` and configure `milvus` and `kb_name`)
+
+**New in this version**: MySQL socket connection support for improved local database performance. Use the `socket` field in `db_config.yaml` to connect via Unix socket instead of TCP.
+
+### Database Management
+
+VulnBot now includes database utilities to help manage MySQL connections:
+
+```sh
+# Initialize database tables
+python cli.py db init
+
+# Test database connection
+python cli.py db test
+
+# Connect to MySQL using configured settings
+python cli.py db connect
+
+# Show database connection info
+python cli.py db info
+```
 
 ### Initialize the Project
 
@@ -118,3 +138,51 @@ If you use VulnBot for academic purposes, please cite our [paper](https://arxiv.
 
 If you have any questions or suggestions, please open an issue on GitHub. Contributions, discussions, and improvements are always welcome!
 
+## Patched
+If "btw i use nixos" user read this, this is for you.
+Pick shell.nix and add these lines:
+```nix
+{ pkgs ? import <nixpkgs> { config.allowUnfree = true; } }:
+pkgs.mkShell {
+   buildInputs = with pkgs; [
+      mysql80
+      python311Full.uv
+      ...
+   ]
+   shellHook = ''
+     # Set up library paths for compiled Python packages
+    export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib:${pkgs.zlib}/lib:${pkgs.libffi}/lib:${pkgs.openssl.out}/lib:${pkgs.glibc}/lib:$LD_LIBRARY_PATH"
+    
+    # Add headers for Python package compilation
+    export C_INCLUDE_PATH="${pkgs.linuxHeaders}/include:${pkgs.libevdev}/include:${pkgs.libinput}/include:$C_INCLUDE_PATH"
+    export PKG_CONFIG_PATH="${pkgs.libevdev}/lib/pkgconfig:${pkgs.libinput}/lib/pkgconfig:$PKG_CONFIG_PATH"
+    
+    # MySQL setup
+    export MYSQL_HOME="$PWD/.mysql"
+    export MYSQL_DATADIR="$MYSQL_HOME/data"
+    
+    # Create MySQL directories if they don't exist
+    mkdir -p "$MYSQL_DATADIR"
+    
+    # Initialize MySQL database if not already done
+    if [ ! -d "$MYSQL_DATADIR/mysql" ]; then
+      echo "Initializing MySQL database..."
+      mysqld --initialize-insecure --user=$USER --datadir="$MYSQL_DATADIR"
+    fi
+    
+    echo "MySQL server available. To start: mysqld --datadir=$MYSQL_DATADIR --socket=$MYSQL_HOME/mysql.sock --pid-file=$MYSQL_HOME/mysql.pid"
+    echo "To connect: mysql --socket=$MYSQL_HOME/mysql.sock"
+   '';
+}
+
+Then edit db_config.yaml to match your MySQL settings, including socket support.
+
+Run these commands to setup db `nix-shell --run "mysql --socket=/home/jc/attacker-tools/.mysql/mysql.sock -u root -e 'CREATE DATABASE IF NOT EXISTS vulnbot_db;'"`
+
+Run `nix-shell --run "bash"` and
+```bash
+uv venv --python 3.11.11
+uv pip install -r requirements.txt
+python cli.py init
+...
+```

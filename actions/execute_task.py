@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 from actions.run_code import RunCode
 from actions.shell_manager import ShellManager
+from actions.tavily_search import search_security_intelligence
 from config.config import Configs, Mode
 
 from utils.log_common import build_logger
@@ -47,16 +48,17 @@ class ExecuteTask(BaseModel):
         if Configs.basic_config.mode == Mode.SemiAuto:
             if self.action == "Shell":
                 result = self.shell_operation()
-                # result = RunCode(timeout=300, commands=thought).execute_cmd()
-                # if result == "":
-                #     result = prompt("Since the command takes too long to run, "
-                #                         "please enter the manual run command and enter the result.\n> ")
+            elif self.action == "Search":
+                result = self.search_operation()
             else:
                 result = prompt("Please enter the manual run command and enter the result.\n> ")
         elif Configs.basic_config.mode == Mode.Manual:
             result = prompt("Please enter the manual run command and enter the result.\n> ")
         else:
-            result = self.shell_operation()
+            if self.action == "Search":
+                result = self.search_operation()
+            else:
+                result = self.shell_operation()
 
         return ExecuteResult(context={
             "action": self.action,
@@ -64,12 +66,30 @@ class ExecuteTask(BaseModel):
             "code": self.code,
         }, response=result)
 
+    def search_operation(self):
+        """Handle Tavily search operations"""
+        result = ""
+        search_queries = self.parse_response()
+        self.code = search_queries
+        logger.info(f"Running Tavily searches: {search_queries}")
+        
+        try:
+            for i, query in enumerate(search_queries, 1):
+                result += f'Search Query {i}: {query}\n'
+                search_result = search_security_intelligence(query, max_results=3)
+                result += f'Search Results:\n{search_result}\n\n'
+        except Exception as e:
+            logger.error(f"Tavily search failed: {e}")
+            result = f"Search operation failed: {str(e)}"
+        
+        return result
+
     def shell_operation(self):
         result = ""
         thought = self.parse_response()
         self.code = thought
         logger.info(f"Running {thought}")
-        # 执行命令列表
+        # Execute command list
         shell = ShellManager.get_instance().get_shell()
         try:
             SMB_PROMPTS = [

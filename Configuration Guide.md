@@ -37,11 +37,18 @@ This section defines core settings for the system.
 This section defines MySQL database connection settings.
 
 - MySQL
-  - `host`: Database host.
-  - `port`: Database port.
+  - `host`: Database host (used for TCP connections).
+  - `port`: Database port (used for TCP connections).
   - `user`: Username for authentication.
   - `password`: Password for authentication.
   - `database`: Database name.
+  - `socket`: Unix socket path for local connections (alternative to host/port).
+  - `charset`: Character set for the connection (optional, default: utf8mb4).
+  - `connect_timeout`: Connection timeout in seconds (optional).
+  - `pool_size`: SQLAlchemy connection pool size (optional).
+  - `max_overflow`: SQLAlchemy pool overflow size (optional).
+
+**Note**: When `socket` is specified and not empty, it will be used for connection instead of `host` and `port`. This is useful for local MySQL instances or when using Unix sockets for better performance.
 
 ### 3. Knowledge Base Configuration (`kb_config.yaml`)
 
@@ -78,4 +85,24 @@ Defines settings for the language model.
   - `history_len`: Length of conversation history.
   - `timeout`: Timeout value for requests.
   - `proxies`: Proxy settings for API requests.
+
+## Database Management
+
+VulnBot includes a database utility command to help manage MySQL connections:
+
+```bash
+# Initialize database tables
+python cli.py db init
+
+# Connect to configured MySQL database
+python cli.py db connect
+
+# Show database configuration info
+python cli.py db info
+
+# Test database connection
+python cli.py db test
+```
+
+The database utilities automatically use the configuration from `db_config.yaml` and support both TCP and Unix socket connections.
 

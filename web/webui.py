@@ -4,6 +4,7 @@ import streamlit as st
 import streamlit_antd_components as sac
 
 from server.utils.utils import api_address
+from config.config import Configs
 from web.knowledge_base.knowledge_base import knowledge_base_page
 from web.utils.utils import ApiRequest
 
@@ -28,16 +29,23 @@ if __name__ == "__main__":
     )
 
     with st.sidebar:
+        menu_items = []
+        if Configs.basic_config.enable_knowledge_base:
+            menu_items.append(sac.MenuItem("Knowledge Base Management", icon="hdd-stack"))
 
-        selected_page = sac.menu(
-            [
-                sac.MenuItem("知识库管理", icon="hdd-stack"),
-            ],
-            key="selected_page",
-            open_index=0,
-        )
+        if not menu_items:
+            st.info("Knowledge base features are disabled.")
+            selected_page = None
+        else:
+            selected_page = sac.menu(
+                menu_items,
+                key="selected_page",
+                open_index=0,
+            )
+            sac.divider()
 
-        sac.divider()
-
-    if selected_page == "知识库管理":
+    if (
+        selected_page == "Knowledge Base Management"
+        and Configs.basic_config.enable_knowledge_base
+    ):
         knowledge_base_page(api=api)

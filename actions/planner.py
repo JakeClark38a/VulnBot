@@ -1,3 +1,4 @@
+import hashlib
 from typing import Optional
 
 from pydantic import BaseModel
@@ -24,9 +25,14 @@ class Planner(BaseModel):
 
         response = WritePlan(plan_chat_id=self.current_plan.plan_chat_id).run(self.init_description)
 
-        logger.info(f"plan: {response}")
+        logger.info(f"plan (raw): {response}")
 
-        self.current_plan = parse_tasks(response, self.current_plan)
+        try:
+            self.current_plan = parse_tasks(response, self.current_plan)
+        except Exception as e:
+            logger.error(f"Failed to build plan: {e}")
+            # Abort planning; caller will see None and can decide to retry or terminate.
+            return None
 
         next_task = self.next_task_details()
 
@@ -57,10 +63,15 @@ class Planner(BaseModel):
 
         logger.info(f"updated_plan: {updated_response}")
 
-        if updated_response == "" or updated_response is None:
-            return None
+        if not updated_response:
+            logger.error("Plan update failed: empty or error response from LLM. Keeping existing tasks.")
+            return self.next_task_details()
 
-        merge_tasks(updated_response, self.current_plan)
+        try:
+            merge_tasks(updated_response, self.current_plan)
+        except Exception as e:
+            logger.error(f"Failed to merge updated plan: {e}")
+            return self.next_task_details()
 
         next_task = self.next_task_details()
 
@@ -72,11 +83,28 @@ class Planner(BaseModel):
             return None
 
         self.current_plan.current_task_sequence = self.current_plan.current_task.sequence
+        
+        # Create a more explicit prompt that focuses only on the current task
+        current_task_instruction = self.current_plan.current_task.instruction
+        
+        # Use a task-specific conversation ID to avoid cross-contamination
+        # Keep it short to fit in the conversation_id column (32 chars max)
+        task_suffix = f"t{self.current_plan.current_task_sequence}"
+        base_id = self.current_plan.react_chat_id
+        
+        # If the combined ID would be too long, create a shorter hash-based ID
+        if len(base_id) + len(task_suffix) + 1 > 32:
+            # Create a hash of the original ID and append task suffix
+            hash_base = hashlib.md5(base_id.encode()).hexdigest()[:20]
+            task_conversation_id = f"{hash_base}_{task_suffix}"
+        else:
+            task_conversation_id = f"{base_id}_{task_suffix}"
+        
         next_task = _chat(
-            query=DeepPentestPrompt.next_task_details.format(todo_task=self.current_plan.current_task.instruction),
-            conversation_id=self.current_plan.react_chat_id,
+            query=DeepPentestPrompt.next_task_details.format(todo_task=current_task_instruction),
+            conversation_id=task_conversation_id,
             kb_name=Configs.kb_config.kb_name,
-            kb_query=self.current_plan.current_task.instruction
+            kb_query=current_task_instruction
         )
         return next_task
 

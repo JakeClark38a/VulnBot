@@ -27,12 +27,12 @@ class BaseGPT:
     def initialize(self, generation_session_init):
         # 初始化骨干会话，并测试与chatGPT的连接
         # 定义三个会话：testGenerationSession, testReasoningSession, 和 InputParsingSession
-        # 在控制台上显示初始化ChatGPT会话的状态
+        # Display initialization status on console
         with self.console.status(
                 "[bold green] Initialize ChatGPT Sessions..."
         ) as status:
             try:
-                # 分别发送消息以初始化三个不同的会话，并获取会话ID
+                # Send messages separately to initialize three different sessions and get session IDs
                 (
                     text_0,
                     self.session_id,
@@ -53,7 +53,7 @@ class BaseGPT:
         )
 
         with self.console.status("[bold green] Generating Initial Task") as status:
-            # 向生成会话发送消息以获取任务细节
+            # Send message to generation session to get task details
 
             next_task = self.agent.send_message(
                 init_description,

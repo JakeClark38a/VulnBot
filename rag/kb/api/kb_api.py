@@ -35,10 +35,10 @@ def create_kb(
     try:
         kb.create_kb()
     except Exception as e:
-        msg = f"创建知识库出错： {e}"
+        msg = f"Error creating knowledge base: {e}"
         return BaseResponse(code=500, msg=msg)
 
-    return BaseResponse(code=200, msg=f"已新增知识库 {knowledge_base_name}")
+    return BaseResponse(code=200, msg=f"Knowledge base {knowledge_base_name} has been added")
 
 
 def delete_kb(
@@ -52,15 +52,15 @@ def delete_kb(
     kb = KBServiceFactory.get_service_by_name(knowledge_base_name)
 
     if kb is None:
-        return BaseResponse(code=404, msg=f"未找到知识库 {knowledge_base_name}")
+        return BaseResponse(code=404, msg=f"Knowledge base {knowledge_base_name} not found")
 
     try:
         status = kb.clear_vs()
         status = kb.drop_kb()
         if status:
-            return BaseResponse(code=200, msg=f"成功删除知识库 {knowledge_base_name}")
+            return BaseResponse(code=200, msg=f"Successfully deleted knowledge base {knowledge_base_name}")
     except Exception as e:
-        msg = f"删除知识库时出现意外： {e}"
+        msg = f"Unexpected error while deleting knowledge base: {e}"
         return BaseResponse(code=500, msg=msg)
 
-    return BaseResponse(code=500, msg=f"删除知识库失败 {knowledge_base_name}")
+    return BaseResponse(code=500, msg=f"Failed to delete knowledge base {knowledge_base_name}")

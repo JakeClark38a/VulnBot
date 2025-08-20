@@ -62,7 +62,7 @@ def knowledge_base_page(api: ApiRequest):
     except Exception as e:
         logger.error(e)
         st.error(
-            "获取知识库信息错误，请检查是否为数据库连接错误。"
+            "Error getting knowledge base information, please check if it's a database connection error."
         )
         st.stop()
     kb_names = list(kb_list.keys())
@@ -85,22 +85,22 @@ def knowledge_base_page(api: ApiRequest):
             return kb_name
 
     selected_kb = st.selectbox(
-        "请选择或新建知识库：",
-        kb_names + ["新建知识库"],
+        "Please select or create a knowledge base:",
+        kb_names + ["Create New Knowledge Base"],
         format_func=format_selected_kb,
         index=selected_kb_index,
     )
 
-    if selected_kb == "新建知识库":
-        with st.form("新建知识库"):
+    if selected_kb == "Create New Knowledge Base":
+        with st.form("Create New Knowledge Base"):
             kb_name = st.text_input(
-                "新建知识库名称",
-                placeholder="新知识库名称，不支持中文命名",
+                "New Knowledge Base Name",
+                placeholder="New knowledge base name, Chinese naming not supported",
                 key="kb_name",
             )
             kb_info = st.text_input(
-                "知识库简介",
-                placeholder="知识库简介，方便Agent查找",
+                "Knowledge Base Description",
+                placeholder="Knowledge base description, helps Agent search",
                 key="kb_info",
             )
 
@@ -128,11 +128,11 @@ def knowledge_base_page(api: ApiRequest):
 
         if submit_create_kb:
             if not kb_name or not kb_name.strip():
-                st.error(f"知识库名称不能为空！")
+                st.error(f"Knowledge base name cannot be empty!")
             elif kb_name in kb_list:
-                st.error(f"名为 {kb_name} 的知识库已经存在！")
+                st.error(f"Knowledge base named {kb_name} already exists!")
             elif embed_model is None:
-                st.error(f"请选择Embedding模型！")
+                st.error(f"Please select an Embedding model!")
             else:
                 ret = api.create_knowledge_base(
                     knowledge_base_name=kb_name,
@@ -154,7 +154,7 @@ def knowledge_base_page(api: ApiRequest):
             accept_multiple_files=True,
         )
         kb_info = st.text_area(
-            "请输入知识库介绍:",
+            "Please enter knowledge base description:",
             value=st.session_state["selected_kb_info"],
             max_chars=None,
             key=None,
@@ -181,7 +181,7 @@ def knowledge_base_page(api: ApiRequest):
 
 
         if st.button(
-            "添加文件到知识库",
+            "Add Files to Knowledge Base",
             # use_container_width=True,
             disabled=len(files) == 0,
         ):
@@ -199,15 +199,15 @@ def knowledge_base_page(api: ApiRequest):
 
         st.divider()
 
-        # 知识库详情
-        # st.info("请选择文件，点击按钮进行操作。")
+        # Knowledge base details
+        # st.info("Please select files and click buttons to operate.")
         doc_details = pd.DataFrame(get_kb_file_details(kb))
         selected_rows = []
         if not len(doc_details):
-            st.info(f"知识库 `{kb}` 中暂无文件")
+            st.info(f"No files in knowledge base `{kb}` yet")
         else:
-            st.write(f"知识库 `{kb}` 中已有文件:")
-            st.info("知识库中包含源文件与向量库，请从下表中选择文件后操作")
+            st.write(f"Existing files in knowledge base `{kb}`:")
+            st.info("Knowledge base contains source files and vector store, please select files from the table below to operate")
             doc_details.drop(columns=["kb_name"], inplace=True)
             doc_details = doc_details[
                 [
@@ -296,9 +296,9 @@ def knowledge_base_page(api: ApiRequest):
                 )
                 st.rerun()
 
-            # 将文件从向量库中删除，但不删除文件本身。
+            # Remove files from vector store, but don't delete the files themselves.
             if cols[2].button(
-                "从向量库删除",
+                "Remove from Vector Store",
                 disabled=not (selected_rows and selected_rows[0]["in_db"]),
                 use_container_width=True,
             ):
@@ -307,7 +307,7 @@ def knowledge_base_page(api: ApiRequest):
                 st.rerun()
 
             if cols[3].button(
-                "从知识库中删除",
+                "Delete from Knowledge Base",
                 type="primary",
                 use_container_width=True,
             ):
@@ -320,7 +320,7 @@ def knowledge_base_page(api: ApiRequest):
         cols = st.columns(3)
 
         if cols[1].button(
-            "删除知识库",
+            "Delete Knowledge Base",
             use_container_width=True,
         ):
             ret = api.delete_knowledge_base(kb)
@@ -329,7 +329,7 @@ def knowledge_base_page(api: ApiRequest):
             st.rerun()
 
 
-        st.write("文件内文档列表。双击进行修改，在删除列填入 Y 可删除对应行。")
+        st.write("Document list within files. Double-click to edit, enter Y in delete column to delete corresponding row.")
         docs = []
         df = pd.DataFrame([], columns=["seq", "id", "content", "source"])
         if selected_rows:
@@ -367,14 +367,14 @@ def knowledge_base_page(api: ApiRequest):
             )
             gb.configure_column(
                 "to_del",
-                "删除",
+                "Delete",
                 editable=True,
                 width=50,
                 wrapHeaderText=True,
                 cellEditor="agCheckboxCellEditor",
                 cellRender="agCheckboxCellRenderer",
             )
-            # 启用分页
+            # Enable pagination
             gb.configure_pagination(
                 enabled=True, paginationAutoPageSize=False, paginationPageSize=10
             )

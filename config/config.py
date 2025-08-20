@@ -25,15 +25,17 @@ class BasicConfig(BaseFileSettings):
     model_config = SettingsConfigDict(yaml_file=PENTEST_ROOT / "basic_config.yaml")
 
     log_verbose: bool = True
+    LOG_PATH: str = "logs"
 
-    enable_rag: bool = False
+    enable_rag: bool = False  # Retrieval-Augmented Generation (KB powered)
+    enable_knowledge_base: bool = True  # Master switch to expose KB features (API + WebUI)
+    enable_tavily_search: bool = False  # Enable Tavily web search for external intelligence
 
     mode: str = Mode.Auto
 
     @cached_property
-    def LOG_PATH(self) -> Path:
-
-        p = PENTEST_ROOT / "logs"
+    def LOG_PATH_RESOLVED(self) -> Path:
+        p = PENTEST_ROOT / self.LOG_PATH
         return p
 
     KB_ROOT_PATH: str = str(PENTEST_ROOT / "data/knowledge_base")
@@ -55,7 +57,7 @@ class BasicConfig(BaseFileSettings):
 
     def make_dirs(self):
         for p in [
-            self.LOG_PATH,
+            self.LOG_PATH_RESOLVED,
         ]:
             p.mkdir(parents=True, exist_ok=True)
         Path(self.KB_ROOT_PATH).mkdir(parents=True, exist_ok=True)
@@ -64,11 +66,16 @@ class BasicConfig(BaseFileSettings):
 class DBConfig(BaseFileSettings):
     model_config = SettingsConfigDict(yaml_file=PENTEST_ROOT / "db_config.yaml")
     mysql: dict = {
-        "host": "",
+        "host": "localhost",
         "port": 3306,
-        "user": "",
-        "password": "",
-        "database": ""
+        "user": "vulnbot",
+        "password": "vulnbot123",
+        "database": "vulnbot_db",
+        "socket": "/tmp/mysql.sock",  # MySQL Unix socket path (alternative to host/port)
+        "charset": "utf8mb4",
+        "connect_timeout": 30,
+        "pool_size": 10,
+        "max_overflow": 20
     }
 
 
@@ -78,12 +85,12 @@ class KBConfig(BaseFileSettings):
     default_vs_type: str = "milvus"
 
     milvus: dict = {
-        "uri": "",
+        "uri": "http://localhost:19530",
         "user": "",
         "password": "",
     }
 
-    kb_name: str = ""
+    kb_name: str = "vulnbot_knowledge"
 
     chunk_size: int = 750
     overlap_size: int = 150
@@ -123,9 +130,10 @@ class LLMConfig(BaseFileSettings):
     model_config = SettingsConfigDict(yaml_file=PENTEST_ROOT / "model_config.yaml")
 
     api_key: str = ""
+    tavily_api_key: str = ""
     llm_model: str = "openai"
     base_url: str = ""
-    llm_model_name: str = ""
+    llm_model_name: str = "gpt-4o-mini"
     embedding_models: str = "maidalun1020/bce-embedding-base_v1"
     embedding_type: str = "local"
     context_length: int = 120000
@@ -137,6 +145,22 @@ class LLMConfig(BaseFileSettings):
     proxies: Dict[str, str] = dataclasses.field(default_factory=dict)
 
 
+class TavilyConfig(BaseFileSettings):
+    model_config = SettingsConfigDict(yaml_file=PENTEST_ROOT / "tavily_config.yaml")
+    
+    enabled: bool = False
+    api_key: str = ""
+    search_depth: str = "advanced"
+    max_results: int = 5
+    timeout: int = 30
+    security_domains: list[str] = dataclasses.field(default_factory=list)
+    include_domains: list[str] = dataclasses.field(default_factory=list)
+    exclude_domains: list[str] = dataclasses.field(default_factory=list)
+    include_answer: bool = True
+    include_raw_content: bool = True
+    truncate_content: int = 500
+
+
 class ConfigsContainer:
     PENTEST_ROOT = PENTEST_ROOT
 
@@ -144,18 +168,21 @@ class ConfigsContainer:
     kb_config: KBConfig = settings_property(KBConfig())
     llm_config: LLMConfig = settings_property(LLMConfig())
     db_config: DBConfig = settings_property(DBConfig())
+    tavily_config: TavilyConfig = settings_property(TavilyConfig())
 
     def create_all_templates(self):
         self.basic_config.create_template_file(write_file=True, file_format="yaml")
         self.kb_config.create_template_file(write_file=True, file_format="yaml")
         self.llm_config.create_template_file(write_file=True, file_format="yaml")
         self.db_config.create_template_file(write_file=True, file_format="yaml")
+        self.tavily_config.create_template_file(write_file=True, file_format="yaml")
 
     def set_auto_reload(self, flag: bool = True):
         self.basic_config.auto_reload = flag
         self.kb_config.auto_reload = flag
         self.llm_config.auto_reload = flag
         self.db_config.auto_reload = flag
+        self.tavily_config.auto_reload = flag
 
 
 Configs = ConfigsContainer()

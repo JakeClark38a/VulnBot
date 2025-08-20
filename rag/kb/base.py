@@ -46,7 +46,7 @@ class KBService(ABC):
 
     def create_kb(self):
         """
-        创建知识库
+        Create knowledge base
         """
         if not os.path.exists(self.doc_path):
             os.makedirs(self.doc_path)
@@ -61,7 +61,7 @@ class KBService(ABC):
 
     def clear_vs(self):
         """
-        删除向量库中所有内容
+        Delete all content in vector store
         """
         self.do_clear_vs()
         status = delete_files_from_db(self.kb_name)
@@ -69,7 +69,7 @@ class KBService(ABC):
 
     def drop_kb(self):
         """
-        删除知识库
+        Delete knowledge base
         """
         self.do_drop_kb()
         status = delete_kb_from_db(self.kb_name)
@@ -77,8 +77,8 @@ class KBService(ABC):
 
     def add_doc(self, kb_file: KnowledgeFile, docs: List[Document] = [], **kwargs):
         """
-        向知识库添加文件
-        如果指定了docs，则不再将文本向量化，并将数据库对应条目标为custom_docs=True
+        Add file to knowledge base
+        If docs are specified, the text will not be vectorized and the database entry will be marked as custom_docs=True
         """
 
         if docs:
@@ -213,7 +213,7 @@ class KBService(ABC):
     @abstractmethod
     def do_create_kb(self):
         """
-        创建知识库子类实自己逻辑
+        Create knowledge base subclass with its own logic
         """
         pass
 
@@ -236,7 +236,7 @@ class KBService(ABC):
     @abstractmethod
     def do_drop_kb(self):
         """
-        删除知识库子类实自己逻辑
+        Delete knowledge base subclass with its own logic
         """
         pass
 
@@ -259,21 +259,21 @@ class KBService(ABC):
             **kwargs,
     ) -> List[Dict]:
         """
-        向知识库添加文档子类实自己逻辑
+        Add documents to knowledge base subclass with its own logic
         """
         pass
 
     @abstractmethod
     def do_delete_doc(self, kb_file: KnowledgeFile):
         """
-        从知识库删除文档子类实自己逻辑
+        Delete documents from knowledge base subclass with its own logic
         """
         pass
 
     @abstractmethod
     def do_clear_vs(self):
         """
-        从知识库删除全部向量子类实自己逻辑
+        Delete all vectors from knowledge base subclass with its own logic
         """
         pass
 

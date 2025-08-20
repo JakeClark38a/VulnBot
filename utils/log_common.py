@@ -26,7 +26,7 @@ def _filter_logs(record: dict) -> bool:
     return True
 
 
-# 默认每调用一次 build_logger 就会添加一次 hanlder，
+# By default, each call to build_logger will add a handler,
 @cached(max_size=100, algorithm=CachingAlgorithmFlag.LRU)
 def build_logger(log_file: str = "Auto-Pentest"):
     """
@@ -47,7 +47,7 @@ def build_logger(log_file: str = "Auto-Pentest"):
         if not log_file.endswith(".log"):
             log_file = f"{log_file}.log"
         if not os.path.isabs(log_file):
-            log_file = str((Configs.basic_config.LOG_PATH / log_file).resolve())
+            log_file = str((Configs.basic_config.LOG_PATH_RESOLVED / log_file).resolve())
         logger.add(log_file, colorize=False, filter=_filter_logs)
 
     return logger

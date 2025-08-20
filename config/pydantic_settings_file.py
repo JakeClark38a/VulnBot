@@ -96,7 +96,7 @@ class YamlTemplate:
         if field := fields_schema.get(field_name):
             lines = [field.get("description", "")]
             if enum := field.get("enum"):
-                lines.append(f"可选值：{enum}")
+                lines.append(f"Available values: {enum}")
             return "\n".join(lines)
 
     def create_yaml_template(

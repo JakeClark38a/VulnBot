@@ -1,6 +1,6 @@
 import json
 import re
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 from pydantic import BaseModel
 
@@ -14,15 +14,32 @@ from server.chat.chat import _chat
 class WritePlan(BaseModel):
     plan_chat_id: str
 
-    def run(self, init_description) -> str:
-        rsp = _chat(query=DeepPentestPrompt.write_plan, conversation_id=self.plan_chat_id, kb_name=Configs.kb_config.kb_name, kb_query=init_description)
-
-        match = re.search(r'<json>(.*?)</json>', rsp, re.DOTALL)
+    def _extract_json_block(self, rsp: str) -> Optional[str]:
+        """Extract JSON payload wrapped in <json> tags if present.
+        Returns the inner JSON string or None if not found or rsp empty/error.
+        """
+        if not rsp:
+            return None
+        # Propagate upstream LLM / transport errors (they start with **ERROR**)
+        if rsp.strip().startswith("**ERROR**"):
+            return None
+        match = re.search(r'<json>(.*?)</json>', rsp, re.DOTALL | re.IGNORECASE)
         if match:
-            code = match.group(1)
-            return code
+            return match.group(1).strip()
+        # Fallback: try to find the first JSON array in the text
+        fallback = re.search(r'(\[\s*{.*}\s*\])', rsp, re.DOTALL)
+        if fallback:
+            return fallback.group(1).strip()
+        return None
 
-    def update(self, task_result, success_task, fail_task, init_description) -> str:
+    def run(self, init_description) -> Optional[str]:
+        rsp = _chat(query=DeepPentestPrompt.write_plan,
+                    conversation_id=self.plan_chat_id,
+                    kb_name=Configs.kb_config.kb_name,
+                    kb_query=init_description)
+        return self._extract_json_block(rsp)
+
+    def update(self, task_result, success_task, fail_task, init_description) -> Optional[str]:
         rsp = _chat(
             query=DeepPentestPrompt.update_plan.format(current_task=task_result.instruction,
                                                       init_description=init_description,
@@ -34,22 +51,27 @@ class WritePlan(BaseModel):
             kb_name=Configs.kb_config.kb_name,
             kb_query=task_result.instruction
         )
-        if rsp == "":
-            return rsp
-
-        match = re.search(r'<json>(.*?)</json>', rsp, re.DOTALL)
-        if match:
-            code = match.group(1)
-            return code
+        return self._extract_json_block(rsp)
 
 
-def parse_tasks(response: str, current_plan: Plan):
-    response = json.loads(response)
+def parse_tasks(response: Optional[str], current_plan: Plan):
+    if not response:
+        raise ValueError("Empty plan response: LLM returned no JSON (upstream error or offline endpoint).")
+    try:
+        response_json = json.loads(response)
+    except Exception as e:
+        # Attempt to clean common escape issues then retry once
+        cleaned = preprocess_json_string(response)
+        if cleaned != response:
+            try:
+                response_json = json.loads(cleaned)
+            except Exception:
+                raise ValueError(f"Failed to parse plan JSON after cleanup: {e}. Snippet: {response[:200]}")
+        else:
+            raise ValueError(f"Failed to parse plan JSON: {e}. Snippet: {response[:200]}")
 
-    tasks = import_tasks_from_json(current_plan.id, response)
-
+    tasks = import_tasks_from_json(current_plan.id, response_json)
     current_plan.tasks = tasks
-
     return current_plan
 
 def preprocess_json_string(json_str):
@@ -58,17 +80,18 @@ def preprocess_json_string(json_str):
 
     return json_str
 
-def merge_tasks(response: str, current_plan: Plan):
-
-    # Preprocess the input JSON string
+def merge_tasks(response: Optional[str], current_plan: Plan):
+    if not response:
+        # Nothing to merge (likely upstream error). Keep existing tasks.
+        return current_plan
     processed_response = preprocess_json_string(response)
+    try:
+        response_json = json.loads(processed_response)
+    except Exception as e:
+        raise ValueError(f"Failed to parse updated plan JSON: {e}. Snippet: {response[:200]}")
 
-    response = json.loads(processed_response)
-
-    tasks = merge_tasks_from_json(current_plan.id, response, current_plan.tasks)
-
+    tasks = merge_tasks_from_json(current_plan.id, response_json, current_plan.tasks)
     current_plan.tasks = tasks
-
     return current_plan
 
 
@@ -89,7 +112,7 @@ def import_tasks_from_json(plan_id: str, tasks_json: List[Dict]) -> List[TaskMod
 
 
 def merge_tasks_from_json(plan_id: str, new_tasks_json: List[Dict], old_tasks: List[Task]) -> List[Task]:
-    # 获取所有已完成且成功的任务
+    # Get all completed and successful tasks
     completed_tasks_map = {
         task.instruction: task
         for task in old_tasks
