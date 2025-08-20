@@ -1,0 +1,39 @@
+# Tavily Search Configuration for VulnBot
+# Enable/disable Tavily web search functionality
+enabled: false
+
+# Tavily API configuration
+api_key: ""
+
+# Search settings
+search_depth: "advanced"  # "basic" or "advanced"
+max_results: 5
+timeout: 30
+
+# Security-focused domains (automatically included when security_focused=true)
+security_domains:
+  - "cve.mitre.org"
+  - "nvd.nist.gov"
+  - "github.com"
+  - "security.snyk.io"
+  - "cvedetails.com"
+  - "exploit-db.com"
+  - "packetstormsecurity.com"
+  - "securityfocus.com"
+  - "rapid7.com"
+  - "metasploit.com"
+
+# Always include these domains in searches
+include_domains: []
+
+# Always exclude these domains from searches
+exclude_domains:
+  - "ads.google.com"
+  - "facebook.com"
+  - "twitter.com"
+  - "instagram.com"
+
+# Search result processing
+include_answer: true      # Include AI-generated summary
+include_raw_content: true # Include full page content
+truncate_content: 500     # Max characters per result content

@@ -1,0 +1,14 @@
+api_key: 'dummy'
+tavily_api_key: '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'
+llm_model: openai
+base_url: 'https://e9149c400dfc.ngrok-free.app/v1'
+llm_model_name: Qwen3-32B
+embedding_models: maidalun1020/bce-embedding-base_v1
+embedding_type: local
+context_length: 32768
+embedding_url: ''
+rerank_model: maidalun1020/bce-reranker-base_v1
+temperature: 0.5
+history_len: 5
+timeout: 600
+proxies: {}
