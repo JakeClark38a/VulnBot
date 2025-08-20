@@ -30,6 +30,10 @@ VulnBot is an advanced automated penetration testing framework that utilizes Lar
 
 ## Quick Start
 
+### 🎉 New: Simplified Configuration System
+
+VulnBot now uses a **single `config.yaml` file** instead of multiple configuration files, making setup and management much easier!
+
 ### Prerequisites
 
 Ensure your environment meets the following requirements before proceeding:
@@ -63,14 +67,149 @@ Install VulnBot using one of the following methods:
 
 ### Configuration Guide
 
-Before initializing VulnBot, you need to configure system settings. Refer to the [Configuration Guide](Configuration%20Guide.md) for detailed instructions on modifying:
+VulnBot uses a **single configuration file** (`config.yaml`) for all settings. This simplified approach makes configuration management much easier.
 
-- **Kali Linux configuration** (hostname, port, username, password)
-- **MySQL database settings** (host, port, user, password, database, socket support)
-- **LLM settings** (base_url, llm_model_name, api_key)
-- **Enabling RAG** (set `enable_rag` to `true` and configure `milvus` and `kb_name`)
+#### Sample Configuration
 
-**New in this version**: MySQL socket connection support for improved local database performance. Use the `socket` field in `db_config.yaml` to connect via Unix socket instead of TCP.
+Create a `config.yaml` file in the project root with the following structure:
+
+```yaml
+# VulnBot Configuration - All settings in one file
+
+# Basic Settings
+basic:
+  log_verbose: true
+  log_path: logs
+  mode: auto  # auto, manual, semi
+  http_default_timeout: 300
+  
+  # Feature toggles
+  enable_rag: false
+  enable_knowledge_base: false
+  enable_tavily_search: true
+  
+  # Paths
+  kb_root_path: data/knowledge_base
+  
+  # Network settings
+  default_bind_host: 0.0.0.0
+  
+  # Kali Linux connection
+  kali:
+    hostname: 10.0.0.150
+    port: 22
+    username: root
+    password: root
+  
+  # API Server
+  api_server:
+    host: 0.0.0.0
+    port: 7861
+    public_host: 127.0.0.1
+    public_port: 7861
+  
+  # WebUI Server  
+  webui_server:
+    host: 0.0.0.0
+    port: 8501
+
+# Database Configuration
+database:
+  mysql:
+    host: localhost
+    port: 3306
+    user: root
+    password: 'your_mysql_password'
+    database: vulnbot_db
+    socket: /tmp/mysql.sock  # Optional: Unix socket for local connections
+    charset: utf8mb4
+    connect_timeout: 30
+    pool_size: 10
+    max_overflow: 20
+
+# Knowledge Base Configuration (for RAG)
+knowledge_base:
+  default_vs_type: milvus
+  kb_name: vulnbot_knowledge
+  chunk_size: 750
+  overlap_size: 150
+  top_n: 1
+  top_k: 3
+  score_threshold: 0.5
+  
+  # Milvus settings
+  milvus:
+    uri: http://localhost:19530
+    user: ''
+    password: ''
+
+# LLM Model Configuration
+llm:
+  api_key: 'your_openai_api_key'
+  llm_model: openai
+  base_url: 'https://api.openai.com/v1'  # or your custom endpoint
+  llm_model_name: gpt-4o-mini
+  embedding_models: maidalun1020/bce-embedding-base_v1
+  embedding_type: local
+  context_length: 32768
+  temperature: 0.5
+  history_len: 5
+  timeout: 600
+
+# Tavily Search Configuration (for vulnerability research)
+tavily:
+  enabled: true
+  api_key: "your_tavily_api_key"
+  search_depth: advanced  # basic or advanced
+  max_results: 5
+  timeout: 30
+  
+  # Security-focused domains (automatically included)
+  security_domains:
+    - cve.mitre.org
+    - nvd.nist.gov
+    - github.com
+    - exploit-db.com
+```
+
+#### Configuration Options
+
+**Mode Settings:**
+- `auto`: Fully automated penetration testing
+- `manual`: Manual confirmation for each step  
+- `semi`: Semi-automated with some manual steps
+
+**Feature Toggles:**
+- `enable_rag`: Enable Retrieval-Augmented Generation (requires Milvus)
+- `enable_knowledge_base`: Enable knowledge base features
+- `enable_tavily_search`: Enable Tavily web search for vulnerability research
+
+**Database Options:**
+- Use `socket` for local MySQL connections (faster than TCP)
+- Configure `host`/`port` for remote database connections
+
+#### Quick Configuration Test
+
+Verify your configuration works:
+
+```sh
+python -c "from config.config import config; print(f'✅ Config loaded! Mode: {config.mode}')"
+```
+
+#### Migrating from Old Configuration
+
+If you're upgrading from a previous version with multiple config files (`basic_config.yaml`, `db_config.yaml`, etc.), you can:
+
+1. **Use the migration script** (automatic):
+   ```sh
+   python migrate_config.py
+   ```
+
+2. **Manual migration**: Copy your settings to the new `config.yaml` structure shown above
+
+3. **Test the new config**: Run the configuration test above
+
+The new system is **backward compatible** - your existing code will continue to work!
 
 ### Database Management
 
