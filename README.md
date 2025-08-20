@@ -175,9 +175,9 @@ pkgs.mkShell {
    '';
 }
 
-Then edit db_config.yaml to match your MySQL settings, including socket support.
+Then edit db_config.yaml to match your MySQL settings, including socket location after `nix-shell --run "bash"`.
 
-Run these commands to setup db `nix-shell --run "mysql --socket=/home/jc/attacker-tools/.mysql/mysql.sock -u root -e 'CREATE DATABASE IF NOT EXISTS vulnbot_db;'"`
+Run these commands to setup db `nix-shell --run "mysql --socket=<socket-path-showed-above>/.mysql/mysql.sock -u root -e 'CREATE DATABASE IF NOT EXISTS vulnbot_db;'"`
 
 Run `nix-shell --run "bash"` and
 ```bash
