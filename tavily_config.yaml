@@ -1,9 +1,9 @@
 # Tavily Search Configuration for VulnBot
 # Enable/disable Tavily web search functionality
-enabled: false
+enabled: true
 
 # Tavily API configuration
-api_key: ""
+api_key: "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"
 
 # Search settings
 search_depth: "advanced"  # "basic" or "advanced"

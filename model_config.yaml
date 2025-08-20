@@ -1,7 +1,7 @@
 api_key: 'dummy'
 tavily_api_key: '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'
 llm_model: openai
-base_url: 'https://e9149c400dfc.ngrok-free.app/v1'
+base_url: 'https://388bf6905a19.ngrok-free.app/v1'
 llm_model_name: Qwen3-32B
 embedding_models: maidalun1020/bce-embedding-base_v1
 embedding_type: local

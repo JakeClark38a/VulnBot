@@ -68,13 +68,13 @@ class DeepPentestPrompt:
     ### Case 1
     Input: Next task: Description: Investigate the SSH service on port 22, attempt to establish a connection, and perform a basic enumeration of available files. 
     Command to be executed: 
-    `ssh user@192.168.10.72` 
+    `ssh <username>@<ssh-server-IP>` 
     Password to be entered:
     `test`
-    Output: <execute> ssh user@192.168.10.72 </execute> <execute> test </execute>
+    Output: <execute> ssh <username>@<ssh-server-IP> </execute> <execute> test </execute>
     ### Case 2
-    Input: Next task: Perform OS fingerprinting on the target machine (10.0.2.5). You can follow the instructions below to complete the tasks. Sure, I can provide the next task for the junior penetration tester to perform OS fingerprinting on the target machine. Here's the task: Task: Perform OS fingerprinting on the target machine. Command: nmap -O <target-IP>.
-    Output: <execute> nmap -O 10.0.2.5 </execute>"""
+    Input: Next task: Perform OS fingerprinting on the target machine (<target-ip>). You can follow the instructions below to complete the tasks. Sure, I can provide the next task for the junior penetration tester to perform OS fingerprinting on the target machine. Here's the task: Task: Perform OS fingerprinting on the target machine. Command: nmap -O <target-IP>.
+    Output: <execute> nmap -O <target-ip> </execute>"""
 
     write_summary: str = """You are an autonomous agent tasked with summarizing your historical activities.
     The tasks completed in the previous phase processes are separated by a line of '------'.
