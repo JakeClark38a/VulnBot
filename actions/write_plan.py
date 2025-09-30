@@ -8,7 +8,8 @@ from config.config import Configs
 from prompts.prompt import DeepPentestPrompt
 from db.models.plan_model import Plan
 from db.models.task_model import TaskModel, Task
-from server.chat.chat import _chat
+from server.chat.chat import _chat, is_rate_limit_error
+from actions.content_summarizer import ContentSummarizer
 
 
 class WritePlan(BaseModel):
@@ -40,6 +41,18 @@ class WritePlan(BaseModel):
         return self._extract_json_block(rsp)
 
     def update(self, task_result, success_task, fail_task, init_description) -> Optional[str]:
+        # Check if any content needs summarization
+        content_to_check = f"{task_result.result}{str(success_task)}{str(fail_task)}"
+        
+        if ContentSummarizer.needs_summarization(content_to_check):
+            # Summarize the task result if too long
+            if ContentSummarizer.needs_summarization(task_result.result):
+                task_result.result = ContentSummarizer.summarize_content(
+                    content=task_result.result,
+                    conversation_id=f"{self.plan_chat_id}_update",
+                    context=f"Task result for: {task_result.instruction}"
+                )
+        
         rsp = _chat(
             query=DeepPentestPrompt.update_plan.format(current_task=task_result.instruction,
                                                       init_description=init_description,
@@ -51,6 +64,23 @@ class WritePlan(BaseModel):
             kb_name=Configs.kb_config.kb_name,
             kb_query=task_result.instruction
         )
+        
+        # Check for rate limit error in response
+        if rsp and is_rate_limit_error(rsp):
+            # Attempt one more time with heavily summarized content
+            short_result = task_result.result[:500] + "..." if len(task_result.result) > 500 else task_result.result
+            rsp = _chat(
+                query=DeepPentestPrompt.update_plan.format(current_task=task_result.instruction,
+                                                          init_description=init_description[:300],
+                                                          current_code=str(task_result.code)[:200],
+                                                          task_result=short_result,
+                                                          success_task=str(success_task)[:200],
+                                                          fail_task=str(fail_task)[:200]),
+                conversation_id=f"{self.plan_chat_id}_retry",
+                kb_name=Configs.kb_config.kb_name,
+                kb_query=task_result.instruction[:100]
+            )
+        
         return self._extract_json_block(rsp)
 
 

@@ -21,6 +21,29 @@ from utils.log_common import build_logger
 logger = build_logger()
 
 
+def estimate_tokens(text: str) -> int:
+    """Estimate token count for given text (4 chars ≈ 1 token)."""
+    return len(text) // 4
+
+
+def is_rate_limit_error(error_msg: str) -> bool:
+    """Check if error message indicates rate limit exceeded."""
+    rate_limit_indicators = [
+        "rate_limit_exceeded",
+        "Request too large",
+        "tokens per minute",
+        "TPM",
+        "reduce your message size"
+    ]
+    return any(indicator in error_msg for indicator in rate_limit_indicators)
+
+
+def needs_conversation_reset(messages: List, max_tokens: int = 4000) -> bool:
+    """Check if conversation history exceeds token limit and needs reset."""
+    total_tokens = sum(estimate_tokens(str(msg)) for msg in messages)
+    return total_tokens > max_tokens
+
+
 class OpenAIChat(ABC):
     def __init__(self, config):
         self.config = config
@@ -152,3 +175,33 @@ def _chat(query: str, kb_name=None, conversation_id=None, kb_query=None, summary
     except Exception as e:
         print(e)
         return f"**ERROR**: {str(e)}"
+
+
+def reset_conversation_with_context(conversation_id: str, clean_context: str) -> str:
+    """
+    Reset conversation and start fresh with clean context.
+    
+    Args:
+        conversation_id: ID of conversation to reset
+        clean_context: Clean context to start with
+    
+    Returns:
+        Response from LLM with clean context
+    """
+    try:
+        # Create new conversation ID to start fresh
+        new_conversation_id = f"{conversation_id}_reset_{int(time.time())}"
+        
+        # Start new conversation with clean context
+        response = _chat(
+            query=clean_context,
+            conversation_id=new_conversation_id,
+            kb_name=Configs.kb_config.kb_name if hasattr(Configs, 'kb_config') else None,
+            kb_query="reset conversation"
+        )
+        
+        return response, new_conversation_id
+        
+    except Exception as e:
+        logger.error(f"Failed to reset conversation: {e}")
+        return f"**ERROR**: Failed to reset conversation: {str(e)}", conversation_id

@@ -13,6 +13,7 @@ class SessionModel(Base):
     name = Column(String(50))
     # Increased from String(512) to Text to avoid DataError on long descriptions
     init_description = Column(Text)
+    target_host = Column(String(255))  # Primary target extracted from init_description
     current_role_name = Column(String(50))
     current_planner_id = Column(String(32), index=True)
     history_planner_ids = Column(String(256))
@@ -27,6 +28,7 @@ class Session(BaseModel):
     id: str = Field(None)
     name: str = Field(None)
     init_description: str = Field(None)
+    target_host: str = Field(None)  # Primary target extracted from init_description
     current_role_name: str = Field(None)
     current_planner_id: str = Field(None)
     history_planner_ids: ArrayField[str] = Field(default_factory=list)

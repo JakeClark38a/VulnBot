@@ -28,7 +28,10 @@ class ShellManager:
                 hostname=Configs.basic_config.kali['hostname'],
                 username=Configs.basic_config.kali['username'],
                 password=Configs.basic_config.kali['password'],
-                port=Configs.basic_config.kali['port']
+                port=Configs.basic_config.kali['port'],
+                timeout=10,  # 10 second connection timeout
+                banner_timeout=5,  # 5 second banner timeout
+                auth_timeout=10  # 10 second authentication timeout
             )
         if self._shell is None:
             self._shell = RemoteShell(self._ssh_client.invoke_shell())

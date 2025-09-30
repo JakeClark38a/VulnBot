@@ -36,9 +36,9 @@ class DeepPentestPrompt:
     </json>
     
     ## Action Usage Examples:
-    - Shell: "Perform nmap port scan on target 10.0.0.100 to identify open services"
+    - Shell: "Perform nmap port scan on target `target` to identify open services"
     - Search: "Query Tavily for CVEs and exploits related to Apache Tomcat version 9.0.50"
-    - Web: "Test for SQL injection vulnerabilities in login form at http://10.0.0.100/login"
+    - Web: "Test for SQL injection vulnerabilities in login form at http://target/login"
     """
 
     write_code: str = """You play as an autonomous penetration testing assistant running on Kali Linux 2023.
@@ -46,6 +46,9 @@ class DeepPentestPrompt:
     
     CRITICAL: You must ONLY respond to the specific task described in the "Next Task" section below. 
     Do NOT generate commands for any other tasks, regardless of previous conversation context.
+    
+    **TARGET INFORMATION**:
+    Primary Target: {target_host}
     
     **ADDITIONAL INFORMATION YOU SHOULD FOLLOW**:
     1. **Scan all ports and services of open ports**, sometimes a service uses unusual ports.
@@ -55,9 +58,10 @@ class DeepPentestPrompt:
     
     CRUCIAL PLACEHOLDER REPLACEMENT RULES:
     - Replace ALL placeholders with ACTUAL values found in the task description
+    - Use the TARGET: {target_host} as the primary target for all commands
     - Placeholders like <target-ip>, <username>, <password>, <port> MUST be replaced with real values
-    - Extract actual IP addresses, usernames, ports from the task context
-    - If no specific value is provided, use reasonable defaults (e.g., 10.0.0.100 for IP, root for username)
+    - NEVER use placeholders like "target" or <target-ip> - always use the actual target: {target_host}
+    - Extract actual usernames, ports from the task context when available
     - NEVER output commands with angle bracket placeholders like <target-ip>
     
     Note: Prioritize efficient command execution and validate all parameters and file addresses against Kali Linux 2023's toolset before generating commands. 
@@ -95,23 +99,23 @@ class DeepPentestPrompt:
     
     ## Example Cases:
     ### Case 1
-    Input: Next task: Description: Investigate the SSH service on port 22 on target <target-ip>, attempt to establish a connection using username 'admin', and perform a basic enumeration of available files. 
+    Input: Next task: Description: Investigate the SSH service on port 22 on target {target_host}, attempt to establish a connection using username 'admin', and perform a basic enumeration of available files. 
     Command to be executed: 
-    `ssh root@<target-ip>` 
+    `ssh root@{target_host}` 
     Password to be entered:
     `test`
-    Output: <execute>ssh root@<target-ip></execute>
+    Output: <execute>ssh root@{target_host}</execute>
     <execute>test</execute>
     <execute>ls -la</execute>
     <execute>cat /etc/passwd</execute>
     
     ### Case 2
-    Input: Next task: Perform OS fingerprinting on the target machine <target-ip>. You can follow the instructions below to complete the tasks. Sure, I can provide the next task for the junior penetration tester to perform OS fingerprinting on the target machine. Here's the task: Task: Perform OS fingerprinting on the target machine. Command: nmap -O <target-ip>.
-    Output: <execute>nmap -O <target-ip></execute>
+    Input: Next task: Perform OS fingerprinting on the target machine {target_host}. You can follow the instructions below to complete the tasks. Sure, I can provide the next task for the junior penetration tester to perform OS fingerprinting on the target machine. Here's the task: Task: Perform OS fingerprinting on the target machine. Command: nmap -O {target_host}.
+    Output: <execute>nmap -O {target_host}</execute>
 
     ### Case 3
-    Input: Next task: Scan all ports on target <target-ip> to identify open services.
-    Output: <execute>nmap -T5 -p- <target-ip></execute>"""
+    Input: Next task: Scan all ports on target {target_host} to identify open services.
+    Output: <execute>nmap -T5 -p- {target_host}</execute>"""
 
     write_summary: str = """You are an autonomous agent tasked with summarizing your historical activities.
     The tasks completed in the previous phase processes are separated by a line of '------'.

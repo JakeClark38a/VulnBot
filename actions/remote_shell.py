@@ -46,7 +46,7 @@ class SSHOutputHandler:
 
     @staticmethod
     def receive_data(shell: paramiko.Channel, timeout: float) -> str:
-        """Receives data from shell with improved timeout handling."""
+        """Receives data from shell with improved timeout handling and prompt detection."""
         start_time = time.time()
         retries = 0
         out = ""
@@ -57,19 +57,33 @@ class SSHOutputHandler:
                 decoded_data = SSHOutputHandler.decode_output(data)
                 out += decoded_data
 
-            # Split the output into lines and clean up empty lines
-            lines = out.split('\n')
+            # Clean output for prompt detection by removing ANSI codes and null bytes
+            clean_output = re.sub(r'\x1b\[[0-9;]*[mGKHJF]|\x00|\r', '', out)
+            lines = clean_output.split('\n')
             lines = [x.strip() for x in lines if x.strip() != '']
 
             if len(lines) > 0:
                 last_line = lines[-1].strip()
 
+                # Improved prompt detection for both bash and zsh
+                # Check for our custom bash prompt first
+                if '[bash]$' in last_line:
+                    break
+                
+                # Check for standard zsh prompts (root@kali:~# pattern)
+                elif re.search(r'root@\w+:.*[#$]\s*$', last_line):
+                    break
+                
+                # Check for other common prompts
+                elif re.search(r'[#$%>]\s*$', last_line) and len(last_line) > 1:
+                    break
+                
                 # Handle sudo mode detection
                 if 'sudo' in last_line:
                     retries += 1
 
                 # Check for common shell prompt formats
-                if ('@' in last_line and (last_line[-1] == '$' or last_line[-1] == '#')) or \
+                elif ('@' in last_line and (last_line[-1] == '$' or last_line[-1] == '#')) or \
                         ('bash' in last_line and (last_line[-1] == '$' or last_line[-1] == '#')):
                     break
                 elif last_line[-1] in ['?', '$', '#'] or \
@@ -109,24 +123,26 @@ class RemoteShell:
         self._setup_shell(timeout)
 
     def _setup_shell(self, timeout: float) -> None:
-        """Initializes shell settings."""
+        """Initializes shell settings with faster setup and forces bash."""
         try:
-            self.shell.settimeout(timeout)
+            self.shell.settimeout(30)  # Shorter timeout for setup
             self.shell.set_combine_stderr(True)
 
+            # Force bash shell for consistent behavior
+            self.shell.send("bash\n")
+            time.sleep(0.5)
+            
+            # Set a simple, consistent bash prompt
+            self.shell.send("export PS1='[bash]$ '\n")
+            time.sleep(0.3)
+            
             # Create .hushlogin to suppress the welcome message
-            self.execute_cmd("touch ~/.hushlogin")
-
-            # Update MOTD settings to disable welcome banners
-            motd_commands = [
-                "sudo touch /etc/legal",  # Empty legal notice
-                "sudo chmod 644 /etc/legal",
-                "sudo rm -f /etc/motd",  # Remove message of the day
-                "sudo rm -f /etc/update-motd.d/*"  # Remove dynamic MOTD scripts
-            ]
-
-            for cmd in motd_commands:
-                self.execute_cmd(cmd)
+            self.shell.send("touch ~/.hushlogin\n")
+            time.sleep(0.3)
+            
+            # Clear any remaining output
+            if self.shell.recv_ready():
+                self.shell.recv(4096)
 
         except Exception as e:
             print(f"Shell setup warning: {e}")
@@ -161,11 +177,11 @@ class RemoteShell:
         return final_output
 
     def _handle_normal_execution(self) -> list:
-        """Handles normal command execution flow."""
+        """Handles normal command execution flow with optimized timing."""
         output = []
 
-        time.sleep(.5)
-        data = SSHOutputHandler.receive_data(self.shell, timeout=120.0)
+        time.sleep(0.2)  # Reduced from 0.5 to 0.2 seconds
+        data = SSHOutputHandler.receive_data(self.shell, timeout=120.0)  # Reduced timeout from 120 to 30
         if data != '':
             output.append(data)
         last_line = data.strip().split('\n')[-1]
@@ -173,8 +189,8 @@ class RemoteShell:
         if any(pattern in last_line.lower() for pattern in
                ['[y/n]', '[Y/n/q]', 'yes/no/[fingerprint]', '(yes/no)']):
             self.shell.send("yes\n")
-            time.sleep(.5)
-            data = SSHOutputHandler.receive_data(self.shell, timeout=120.0)
+            time.sleep(0.2)  # Reduced from 0.5 to 0.2 seconds
+            data = SSHOutputHandler.receive_data(self.shell, timeout=120.0)  # Reduced timeout from 120 to 30
             if data != '':
                 output.append(data)
 

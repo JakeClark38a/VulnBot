@@ -8,7 +8,8 @@ from config.config import Configs
 from db.models.task_model import TaskModel, Task
 from prompts.prompt import DeepPentestPrompt
 from db.models.plan_model import Plan
-from server.chat.chat import _chat
+from server.chat.chat import _chat, is_rate_limit_error, reset_conversation_with_context
+from actions.content_summarizer import ContentSummarizer
 from utils.log_common import build_logger
 
 logger = build_logger()
@@ -40,12 +41,26 @@ class Planner(BaseModel):
 
     def update_plan(self, result):
 
+        # Check if result needs summarization due to size
+        if ContentSummarizer.needs_summarization(result):
+            logger.info("Result is too long, summarizing before processing...")
+            result = ContentSummarizer.summarize_content(
+                content=result,
+                conversation_id=self.current_plan.react_chat_id,
+                context="Command execution result for penetration testing"
+            )
+
         check_success = _chat(
             query=DeepPentestPrompt.check_success.format(result=result),
             conversation_id=self.current_plan.react_chat_id
         )
 
         logger.info(f"check_success: {check_success}")
+
+        # Check if we got a rate limit error
+        if check_success and is_rate_limit_error(check_success):
+            logger.warning("Rate limit error detected, attempting summarization and chat reset...")
+            return self._handle_rate_limit_error(result)
 
         if "yes" in check_success.lower():
             task_result = self.update_task_status(self.current_plan.id, self.current_plan.current_task_sequence,
@@ -62,6 +77,11 @@ class Planner(BaseModel):
                                     self.init_description))
 
         logger.info(f"updated_plan: {updated_response}")
+
+        # Check if update response has rate limit error
+        if updated_response and is_rate_limit_error(updated_response):
+            logger.warning("Rate limit error in plan update, attempting recovery...")
+            return self._handle_rate_limit_error(result)
 
         if not updated_response:
             logger.error("Plan update failed: empty or error response from LLM. Keeping existing tasks.")
@@ -125,3 +145,65 @@ class Planner(BaseModel):
 
         # 返回更新后的计划
         return task
+
+    def _handle_rate_limit_error(self, result: str):
+        """
+        Handle rate limit errors by summarizing content and resetting chat context.
+        
+        Args:
+            result: The command result that caused the token limit issue
+        
+        Returns:
+            Next task details with clean context
+        """
+        try:
+            logger.info("Handling rate limit error with summarization and chat reset...")
+            
+            # Summarize the problematic result
+            summary = ContentSummarizer.summarize_content(
+                content=result,
+                conversation_id=f"{self.current_plan.react_chat_id}_emergency",
+                context="Emergency summarization due to token limits"
+            )
+            
+            # Get current task for context
+            current_task = self.current_plan.tasks[self.current_plan.current_task_sequence] if self.current_plan.tasks else None
+            current_task_desc = current_task.instruction if current_task else "Continue penetration testing"
+            
+            # Create clean context
+            clean_context = ContentSummarizer.create_clean_chat_context(
+                user_description=self.init_description,
+                system_prompt="You are a penetration testing expert assistant. Continue with the planned tasks.",
+                summary=summary,
+                current_task=current_task_desc
+            )
+            
+            # Reset conversation with clean context
+            response, new_conversation_id = reset_conversation_with_context(
+                self.current_plan.react_chat_id,
+                clean_context
+            )
+            
+            # Update chat IDs
+            self.current_plan.react_chat_id = new_conversation_id
+            self.current_plan.plan_chat_id = f"{new_conversation_id}_plan"
+            
+            logger.info("Successfully reset chat context due to rate limit")
+            
+            # Mark current task as completed with summary
+            if current_task:
+                self.update_task_status(
+                    self.current_plan.id,
+                    self.current_plan.current_task_sequence,
+                    True,
+                    True,
+                    f"Task completed. Summary: {summary[:500]}..."
+                )
+            
+            # Return next task details
+            return self.next_task_details()
+            
+        except Exception as e:
+            logger.error(f"Failed to handle rate limit error: {e}")
+            # Fallback: just continue with next task
+            return self.next_task_details()

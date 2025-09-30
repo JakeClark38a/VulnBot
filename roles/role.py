@@ -25,6 +25,7 @@ class Role(BaseModel):
     plan_chat_id: str = ""
     react_chat_id: str = ""
     console: Any = None
+    session: Any = None  # Store session to access target_host
 
     def get_summary(self, history_planner_ids):
         self.previous_summary = PlannerSummary(history_planner_ids=history_planner_ids)
@@ -38,7 +39,12 @@ class Role(BaseModel):
     def _react(self, next_task):
         try:
             self.chat_counter += 1
-            writer = WriteCode(next_task=next_task, action=self.planner.current_plan.current_task.action)
+            target_host = getattr(self.session, 'target_host', 'target') if self.session else 'target'
+            writer = WriteCode(
+                next_task=next_task, 
+                action=self.planner.current_plan.current_task.action,
+                target_host=target_host
+            )
             result = writer.run()
             self.console.print("---------- Execute Result ---------", style="bold green")
             logger.info(result.response)
@@ -82,6 +88,7 @@ class Role(BaseModel):
         return self.planner.plan()
 
     def run(self, session):
+        self.session = session  # Store session for access to target_host
         next_task = self._plan(session)
         while self.chat_counter < self.max_interactions:
             next_task = self._react(next_task)
