@@ -94,7 +94,7 @@ basic:
   # Network settings
   default_bind_host: 0.0.0.0
   
-  # Kali Linux connection
+  # Kali Linux connection, Kali server must enable SSH
   kali:
     hostname: 10.0.0.150
     port: 22
@@ -113,15 +113,15 @@ basic:
     host: 0.0.0.0
     port: 8501
 
-# Database Configuration
+# Database Configuration, use docker-compose.yml to build server immediately
 database:
   mysql:
-    host: localhost
+    host: 10.0.0.50
     port: 3306
     user: root
-    password: 'your_mysql_password'
+    password: '123'
     database: vulnbot_db
-    socket: /tmp/mysql.sock  # Optional: Unix socket for local connections
+    # socket: /tmp/mysql.sock  # Optional: Unix socket for local connections
     charset: utf8mb4
     connect_timeout: 30
     pool_size: 10
@@ -187,29 +187,6 @@ tavily:
 **Database Options:**
 - Use `socket` for local MySQL connections (faster than TCP)
 - Configure `host`/`port` for remote database connections
-
-#### Quick Configuration Test
-
-Verify your configuration works:
-
-```sh
-python -c "from config.config import config; print(f'✅ Config loaded! Mode: {config.mode}')"
-```
-
-#### Migrating from Old Configuration
-
-If you're upgrading from a previous version with multiple config files (`basic_config.yaml`, `db_config.yaml`, etc.), you can:
-
-1. **Use the migration script** (automatic):
-   ```sh
-   python migrate_config.py
-   ```
-
-2. **Manual migration**: Copy your settings to the new `config.yaml` structure shown above
-
-3. **Test the new config**: Run the configuration test above
-
-The new system is **backward compatible** - your existing code will continue to work!
 
 ### Database Management
 
@@ -277,54 +254,11 @@ If you use VulnBot for academic purposes, please cite our [paper](https://arxiv.
 
 If you have any questions or suggestions, please open an issue on GitHub. Contributions, discussions, and improvements are always welcome!
 
-## Patched
-If "btw i use nixos" user read this, this is for you.
-If not, install `nix` in linux/wsl/macos. Link: https://nixos.org/download/ or setup MySQL manually in other distro.
-Pick shell.nix and add these lines:
-```nix
-{ pkgs ? import <nixpkgs> { config.allowUnfree = true; } }:
-pkgs.mkShell {
-   buildInputs = with pkgs; [
-      mysql80
-      python311Full.uv
-      ...
-   ]
-   shellHook = ''
-     # Set up library paths for compiled Python packages
-    export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib:${pkgs.zlib}/lib:${pkgs.libffi}/lib:${pkgs.openssl.out}/lib:${pkgs.glibc}/lib:$LD_LIBRARY_PATH"
-    
-    # Add headers for Python package compilation
-    export C_INCLUDE_PATH="${pkgs.linuxHeaders}/include:${pkgs.libevdev}/include:${pkgs.libinput}/include:$C_INCLUDE_PATH"
-    export PKG_CONFIG_PATH="${pkgs.libevdev}/lib/pkgconfig:${pkgs.libinput}/lib/pkgconfig:$PKG_CONFIG_PATH"
-    
-    # MySQL setup
-    export MYSQL_HOME="$PWD/.mysql"
-    export MYSQL_DATADIR="$MYSQL_HOME/data"
-    
-    # Create MySQL directories if they don't exist
-    mkdir -p "$MYSQL_DATADIR"
-    
-    # Initialize MySQL database if not already done
-    if [ ! -d "$MYSQL_DATADIR/mysql" ]; then
-      echo "Initializing MySQL database..."
-      mysqld --initialize-insecure --user=$USER --datadir="$MYSQL_DATADIR"
-    fi
-    
-    echo "MySQL server available. To start: mysqld --datadir=$MYSQL_DATADIR --socket=$MYSQL_HOME/mysql.sock --pid-file=$MYSQL_HOME/mysql.pid"
-    echo "To connect: mysql --socket=$MYSQL_HOME/mysql.sock"
-   '';
-}
-
-Then edit db_config.yaml to match your MySQL settings, including socket location after `nix-shell --run "bash"`.
-
-Start database with command at "To start: mysqld ...", and use socket path instead of username/password
-
-Run these commands to setup db `nix-shell --run "mysql --socket=<socket-path-showed-above>/.mysql/mysql.sock -u root -e 'CREATE DATABASE IF NOT EXISTS vulnbot_db;'"`
-
-Run `nix-shell --run "bash"` and
-```bash
-uv venv --python 3.11.11
-uv pip install -r requirements.txt
-python cli.py init
-...
+## Setup detailed
+1. Clone this repo
 ```
+git clone https://github.com/JakeClark38a/VulnBot
+cd VulnBot
+```
+2. Create config.yaml like above.
+3. Open MySQL server (server that cloned)

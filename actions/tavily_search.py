@@ -56,8 +56,8 @@ class TavilySearch(BaseModel):
     api_key: str = Field(default_factory=lambda: Configs.tavily_config.api_key or Configs.llm_config.tavily_api_key)
     max_results: int = Field(default_factory=lambda: Configs.tavily_config.max_results)
     search_depth: str = Field(default_factory=lambda: Configs.tavily_config.search_depth)
-    include_domains: List[str] = Field(default_factory=lambda: Configs.tavily_config.include_domains)
-    exclude_domains: List[str] = Field(default_factory=lambda: Configs.tavily_config.exclude_domains)
+    include_domains: List[str] = Field(default_factory=lambda: Configs.tavily_config.include_domains or [])
+    exclude_domains: List[str] = Field(default_factory=lambda: Configs.tavily_config.exclude_domains or [])
     
     class Config:
         arbitrary_types_allowed = True
@@ -108,13 +108,17 @@ class TavilySearch(BaseModel):
         
         # Security-focused domains for vulnerability research
         security_domains = Configs.tavily_config.security_domains if security_focused else []
+        security_domains = security_domains or []  # Handle None case
         
-        include_domains = list(set(self.include_domains + security_domains))
+        # Handle None values for include_domains and exclude_domains
+        include_domains_list = self.include_domains or []
+        include_domains = list(set(include_domains_list + security_domains))
         
         logger.info(f"Searching Tavily for: {query}")
         
         try:
             # Use the tavily client for search
+            exclude_domains_list = self.exclude_domains or []
             response = self.client.search(
                 query=query,
                 search_depth=self.search_depth,
@@ -122,7 +126,7 @@ class TavilySearch(BaseModel):
                 include_answer=include_answer,
                 include_raw_content=include_raw_content,
                 include_domains=include_domains,
-                exclude_domains=self.exclude_domains
+                exclude_domains=exclude_domains_list
             )
             
             results = []

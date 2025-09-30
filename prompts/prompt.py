@@ -51,7 +51,7 @@ class DeepPentestPrompt:
     - Replace ALL placeholders with ACTUAL values found in the task description
     - Placeholders like <target-ip>, <username>, <password>, <port> MUST be replaced with real values
     - Extract actual IP addresses, usernames, ports from the task context
-    - If no specific value is provided, use reasonable defaults (e.g., 192.168.1.1 for IP, admin for username)
+    - If no specific value is provided, use reasonable defaults (e.g., 10.0.0.100 for IP, root for username)
     - NEVER output commands with angle bracket placeholders like <target-ip>
     
     Note: Prioritize efficient command execution and validate all parameters and file addresses against Kali Linux 2023's toolset before generating commands. 
@@ -89,23 +89,23 @@ class DeepPentestPrompt:
     
     ## Example Cases:
     ### Case 1
-    Input: Next task: Description: Investigate the SSH service on port 22 on target 192.168.1.100, attempt to establish a connection using username 'admin', and perform a basic enumeration of available files. 
+    Input: Next task: Description: Investigate the SSH service on port 22 on target <target-ip>, attempt to establish a connection using username 'admin', and perform a basic enumeration of available files. 
     Command to be executed: 
-    `ssh admin@192.168.1.100` 
+    `ssh root@<target-ip>` 
     Password to be entered:
     `test`
-    Output: <execute>ssh admin@192.168.1.100</execute>
+    Output: <execute>ssh root@<target-ip></execute>
     <execute>test</execute>
     <execute>ls -la</execute>
     <execute>cat /etc/passwd</execute>
     
     ### Case 2
-    Input: Next task: Perform OS fingerprinting on the target machine 10.0.0.5. You can follow the instructions below to complete the tasks. Sure, I can provide the next task for the junior penetration tester to perform OS fingerprinting on the target machine. Here's the task: Task: Perform OS fingerprinting on the target machine. Command: nmap -O 10.0.0.5.
-    Output: <execute>nmap -O 10.0.0.5</execute>
-    
+    Input: Next task: Perform OS fingerprinting on the target machine <target-ip>. You can follow the instructions below to complete the tasks. Sure, I can provide the next task for the junior penetration tester to perform OS fingerprinting on the target machine. Here's the task: Task: Perform OS fingerprinting on the target machine. Command: nmap -O <target-ip>.
+    Output: <execute>nmap -O <target-ip></execute>
+
     ### Case 3
-    Input: Next task: Scan all ports on target 172.16.1.50 to identify open services.
-    Output: <execute>nmap -T5 -p- 172.16.1.50</execute>"""
+    Input: Next task: Scan all ports on target <target-ip> to identify open services.
+    Output: <execute>nmap -T5 -p- <target-ip></execute>"""
 
     write_summary: str = """You are an autonomous agent tasked with summarizing your historical activities.
     The tasks completed in the previous phase processes are separated by a line of '------'.

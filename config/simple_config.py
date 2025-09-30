@@ -228,6 +228,17 @@ class Configs:
         self.kb_config = KBConfig(config)
         self.llm_config = LLMConfig(config)
         self.tavily_config = TavilyConfig(config)
+        self._auto_reload = True
+    
+    def set_auto_reload(self, enabled: bool):
+        """Set auto-reload behavior (for backward compatibility)"""
+        self._auto_reload = enabled
+    
+    def create_all_templates(self):
+        """Create all template files (for backward compatibility)"""
+        # This is a no-op in the simplified config system
+        # Templates are now handled by the config.yaml file
+        pass
 
 
 # Global instance for backward compatibility
