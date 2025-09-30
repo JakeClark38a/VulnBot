@@ -262,3 +262,9 @@ cd VulnBot
 ```
 2. Create config.yaml like above.
 3. Open MySQL server (server that cloned)
+4. Run (ensure that MySQL client is installed)
+```
+python cli.py db init
+python cli.py db connect
+```
+5. Init VulnBot and run it.
