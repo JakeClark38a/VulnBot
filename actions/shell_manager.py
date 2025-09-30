@@ -34,7 +34,11 @@ class ShellManager:
                 auth_timeout=10  # 10 second authentication timeout
             )
         if self._shell is None:
-            self._shell = RemoteShell(self._ssh_client.invoke_shell())
+            preferred_shell = Configs.basic_config.kali.get('preferred_shell', '/bin/bash')
+            self._shell = RemoteShell(
+                self._ssh_client.invoke_shell(),
+                preferred_shell=preferred_shell
+            )
 
     def close(self):
         if self._shell:

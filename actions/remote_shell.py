@@ -118,9 +118,33 @@ class RemoteShell:
 
     FORBIDDEN_COMMANDS = {'apt', 'apt-get'}
 
-    def __init__(self, shell: paramiko.Channel, timeout: float = 120.0):
+    def __init__(self, shell: paramiko.Channel, timeout: float = 120.0, preferred_shell: str = "/bin/bash"):
         self.shell = shell
+        self.preferred_shell = preferred_shell
         self._setup_shell(timeout)
+
+    def _build_shell_switch_command(self) -> str:
+        """Builds a robust command to enter a Bash shell when available."""
+        if not self.preferred_shell:
+            return ""
+
+        preferred = self.preferred_shell.strip()
+        if not preferred:
+            return ""
+
+        if preferred.startswith('/'):
+            check = f"[ -x {preferred} ]"
+            launch = f"{preferred} -li"
+        else:
+            check = f"command -v {preferred} >/dev/null 2>&1"
+            launch = f"{preferred} -li"
+
+        return (
+            f"if {check}; then {launch}; "
+            "elif command -v bash >/dev/null 2>&1; then bash -li; "
+            "elif command -v sh >/dev/null 2>&1; then sh -li; "
+            "else /bin/sh -li; fi\n"
+        )
 
     def _setup_shell(self, timeout: float) -> None:
         """Initializes shell settings with faster setup and forces bash."""
@@ -129,9 +153,15 @@ class RemoteShell:
             self.shell.set_combine_stderr(True)
 
             # Force bash shell for consistent behavior
-            self.shell.send("bash\n")
-            time.sleep(0.5)
+            switch_command = self._build_shell_switch_command()
+            if switch_command:
+                self.shell.send(switch_command)
+                time.sleep(0.6)
             
+            # Ensure the environment reflects the preferred shell
+            self.shell.send("if command -v bash >/dev/null 2>&1; then export SHELL=$(command -v bash); fi\n")
+            time.sleep(0.2)
+
             # Set a simple, consistent bash prompt
             self.shell.send("export PS1='[bash]$ '\n")
             time.sleep(0.3)
@@ -158,7 +188,6 @@ class RemoteShell:
         """Executes command with improved output handling and error recovery."""
         if error_msg := self._check_forbidden_commands(cmd):
             return error_msg
-
         self.shell.send(cmd + '\n')
 
         output = self._handle_normal_execution()

@@ -13,6 +13,7 @@ class WriteCode(BaseModel):
     next_task: str
     action: str
     target_host: str = Field(default="target")
+    user_instruction: str = Field(default="")
 
     def run(self):
 
@@ -23,7 +24,8 @@ class WriteCode(BaseModel):
         response, _ = _chat(
             query=DeepPentestPrompt.write_code.format(
                 next_task=self.next_task,
-                target_host=self.target_host
+                target_host=self.target_host,
+                user_instruction=self.user_instruction
             ),
             conversation_id=None,  # Fresh conversation to avoid cross-contamination
             summary=False

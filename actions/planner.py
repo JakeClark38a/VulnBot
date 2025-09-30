@@ -1,4 +1,5 @@
 import hashlib
+import re
 from typing import Optional
 
 from pydantic import BaseModel
@@ -15,16 +16,33 @@ from utils.log_common import build_logger
 logger = build_logger()
 
 
+def _parse_success_flag(response: Optional[str]) -> Optional[bool]:
+    """Extract the final yes/no decision from an LLM response, ignoring thinking blocks."""
+    if not response:
+        return None
+
+    cleaned = re.sub(r'<think>.*?</think>', '', response, flags=re.IGNORECASE | re.DOTALL)
+    matches = re.findall(r'\b(yes|no)\b', cleaned.lower())
+    if matches:
+        return matches[-1] == 'yes'
+    return None
+
+
 class Planner(BaseModel):
     current_plan: Plan = None
     init_description: str = ""
+    target_host: str = "target"
 
     def plan(self):
         if self.current_plan.current_task:
             next_task = self.next_task_details()
             return next_task
 
-        response = WritePlan(plan_chat_id=self.current_plan.plan_chat_id).run(self.init_description)
+        response = WritePlan(
+            plan_chat_id=self.current_plan.plan_chat_id,
+            target_host=self.target_host,
+            user_instruction=self.init_description
+        ).run(self.init_description)
 
         logger.info(f"plan (raw): {response}")
 
@@ -62,7 +80,13 @@ class Planner(BaseModel):
             logger.warning("Rate limit error detected, attempting summarization and chat reset...")
             return self._handle_rate_limit_error(result)
 
-        if "yes" in check_success.lower():
+        success_flag = _parse_success_flag(check_success)
+
+        if success_flag is None:
+            logger.warning(f"Unable to determine task success from response: {check_success}")
+            success_flag = False
+
+        if success_flag:
             task_result = self.update_task_status(self.current_plan.id, self.current_plan.current_task_sequence,
                                                   True, True, result)
         else:
@@ -70,11 +94,14 @@ class Planner(BaseModel):
                                                   True, False, result)
 
         # 更新
-        updated_response = (WritePlan(plan_chat_id=self.current_plan.plan_chat_id)
-                            .update(task_result,
-                                    self.current_plan.finished_success_tasks,
-                                    self.current_plan.finished_fail_tasks,
-                                    self.init_description))
+        updated_response = (WritePlan(
+            plan_chat_id=self.current_plan.plan_chat_id,
+            target_host=self.target_host,
+            user_instruction=self.init_description
+        ).update(task_result,
+                 self.current_plan.finished_success_tasks,
+                 self.current_plan.finished_fail_tasks,
+                 self.init_description))
 
         logger.info(f"updated_plan: {updated_response}")
 
@@ -121,7 +148,10 @@ class Planner(BaseModel):
             task_conversation_id = f"{base_id}_{task_suffix}"
         
         next_task = _chat(
-            query=DeepPentestPrompt.next_task_details.format(todo_task=current_task_instruction),
+            query=DeepPentestPrompt.next_task_details.format(
+                todo_task=current_task_instruction,
+                user_instruction=self.init_description
+            ),
             conversation_id=task_conversation_id,
             kb_name=Configs.kb_config.kb_name,
             kb_query=current_task_instruction

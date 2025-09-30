@@ -41,9 +41,10 @@ class Role(BaseModel):
             self.chat_counter += 1
             target_host = getattr(self.session, 'target_host', 'target') if self.session else 'target'
             writer = WriteCode(
-                next_task=next_task, 
+                next_task=next_task,
                 action=self.planner.current_plan.current_task.action,
-                target_host=target_host
+                target_host=target_host,
+                user_instruction=getattr(self.session, 'init_description', '')
             )
             result = writer.run()
             self.console.print("---------- Execute Result ---------", style="bold green")
@@ -63,7 +64,11 @@ class Role(BaseModel):
 
     def _plan(self, session):
         if session.current_planner_id != '':
-            self.planner = Planner(current_plan=get_planner_by_id(session.current_planner_id), init_description=session.init_description)
+            self.planner = Planner(
+                current_plan=get_planner_by_id(session.current_planner_id),
+                init_description=session.init_description,
+                target_host=getattr(session, 'target_host', 'target')
+            )
         else:
             with self.console.status("[bold green] Initializing DeepPentest Sessions...") as status:
                 try:
@@ -82,13 +87,21 @@ class Role(BaseModel):
             plan = add_plan_to_db(plan)
             self.console.print("Plan Initialized.", style="bold green")
             session.current_planner_id = plan.id
-            self.planner = Planner(current_plan=plan, init_description=session.init_description)
+            self.planner = Planner(
+                current_plan=plan,
+                init_description=session.init_description,
+                target_host=getattr(session, 'target_host', 'target')
+            )
 
 
         return self.planner.plan()
 
     def run(self, session):
         self.session = session  # Store session for access to target_host
+        if hasattr(self.planner, 'target_host'):
+            self.planner.target_host = getattr(session, 'target_host', 'target')
+        if hasattr(self.planner, 'init_description'):
+            self.planner.init_description = getattr(session, 'init_description', '')
         next_task = self._plan(session)
         while self.chat_counter < self.max_interactions:
             next_task = self._react(next_task)

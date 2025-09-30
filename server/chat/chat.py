@@ -44,6 +44,39 @@ def needs_conversation_reset(messages: List, max_tokens: int = 4000) -> bool:
     return total_tokens > max_tokens
 
 
+def _apply_thinking_directive(query: str) -> str:
+    """Adjust query to toggle thinking via /no_think token based on config and user request."""
+    token = getattr(Configs.llm_config, 'no_think_token', '/no_think') or ''
+    token = token.strip()
+    if not token:
+        return query
+
+    allow_toggle = getattr(Configs.llm_config, 'allow_no_think_toggle', True)
+    thinking_enabled = getattr(Configs.llm_config, 'thinking_enabled', True)
+
+    working_query = query.rstrip()
+    user_requested_no_think = False
+
+    if allow_toggle and working_query.lower().endswith(token.lower()):
+        user_requested_no_think = True
+        working_query = working_query[:-len(token)].rstrip()
+
+    disable_thinking = (not bool(thinking_enabled)) or user_requested_no_think
+
+    if disable_thinking:
+        # Avoid duplicate tokens
+        if working_query.lower().endswith(token.lower()):
+            prepared_query = working_query
+        elif working_query:
+            prepared_query = f"{working_query}\n{token}"
+        else:
+            prepared_query = token
+    else:
+        prepared_query = working_query if user_requested_no_think else query
+
+    return prepared_query
+
+
 class OpenAIChat(ABC):
     def __init__(self, config):
         self.config = config
@@ -124,6 +157,8 @@ def _chat(query: str, kb_name=None, conversation_id=None, kb_query=None, summary
             if context:
                 context = replace_ip_with_targetip(context)
                 query = f"{query}\n\n\n Ensure that the **Overall Target** IP or the IP from the **Initial Description** is prioritized. You will respond to questions and generate tasks based on the provided penetration test case materials: {context}. \n"
+
+        query = _apply_thinking_directive(query)
 
         if conversation_id is not None and len(query) > 10000:
             query = query[:10000]
