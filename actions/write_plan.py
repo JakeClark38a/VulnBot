@@ -58,14 +58,16 @@ class WritePlan(BaseModel):
                     context=f"Task result for: {task_result.instruction}"
                 )
         
-        prompt_text = DeepPentestPrompt.update_plan.format(current_task=task_result.instruction,
-                                                          init_description=init_description,
-                                                          current_code=task_result.code,
-                                                          task_result=task_result.result,
-                                                          success_task=success_task,
-                                                          fail_task=fail_task)
-        prompt_text = prompt_text.replace("{target_host}", self.target_host)
-        prompt_text = prompt_text.replace("{user_instruction}", self.user_instruction or init_description)
+        prompt_text = DeepPentestPrompt.update_plan.format(
+            current_task=task_result.instruction,
+            init_description=init_description,
+            current_code=task_result.code,
+            task_result=task_result.result,
+            success_task=success_task,
+            fail_task=fail_task,
+            user_instruction=self.user_instruction or init_description,
+            target_host=self.target_host
+        )
 
         rsp = _chat(
             query=prompt_text,
@@ -78,14 +80,16 @@ class WritePlan(BaseModel):
         if rsp and is_rate_limit_error(rsp):
             # Attempt one more time with heavily summarized content
             short_result = task_result.result[:500] + "..." if len(task_result.result) > 500 else task_result.result
-            retry_prompt = DeepPentestPrompt.update_plan.format(current_task=task_result.instruction,
-                                                                init_description=init_description[:300],
-                                                                current_code=str(task_result.code)[:200],
-                                                                task_result=short_result,
-                                                                success_task=str(success_task)[:200],
-                                                                fail_task=str(fail_task)[:200])
-            retry_prompt = retry_prompt.replace("{target_host}", self.target_host)
-            retry_prompt = retry_prompt.replace("{user_instruction}", self.user_instruction or init_description)
+            retry_prompt = DeepPentestPrompt.update_plan.format(
+                current_task=task_result.instruction,
+                init_description=init_description[:300],
+                current_code=str(task_result.code)[:200],
+                task_result=short_result,
+                success_task=str(success_task)[:200],
+                fail_task=str(fail_task)[:200],
+                user_instruction=self.user_instruction or init_description,
+                target_host=self.target_host
+            )
 
             rsp = _chat(
                 query=retry_prompt,
