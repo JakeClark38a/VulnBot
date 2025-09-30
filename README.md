@@ -260,6 +260,11 @@ If you have any questions or suggestions, please open an issue on GitHub. Contri
 git clone https://github.com/JakeClark38a/VulnBot
 cd VulnBot
 ```
+2. Install dependencies:
+```
+uv venv
+uv pip install -r requirements.txt
+```
 2. Create config.yaml like above.
 3. Open MySQL server (server that cloned)
 4. Run (ensure that MySQL client is installed)

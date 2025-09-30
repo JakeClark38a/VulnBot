@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from actions.run_code import RunCode
 from actions.shell_manager import ShellManager
 from actions.tavily_search import search_security_intelligence
+from actions.remote_shell import sanitize_ansi_concealed_payload
 from config.config import Configs, Mode
 
 from utils.log_common import build_logger
@@ -146,4 +147,7 @@ class ExecuteTask(BaseModel):
         except Exception as e:
             print(e)
             result = "Before sending a remote command you need to set-up an SSH connection."
+        
+        # Apply ANSI payload sanitization to the complete result
+        result = sanitize_ansi_concealed_payload(result)
         return result
