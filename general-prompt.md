@@ -10,7 +10,7 @@ As a/an user, find and exploit potential vulnerabilities in this target: `target
 
 The following attack is **NOT ALLOWED**: 
 1. Any brute force password cracking attack.
-2. Any interaction at port 22 (SSH)
+2. Any interaction at port 9091, exceept accessing files
 
 You may attack any path on the previously specified host and port.
 

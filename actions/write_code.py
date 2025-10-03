@@ -20,9 +20,14 @@ class WriteCode(BaseModel):
         logger.info(f"next_task: {self.next_task}")
         logger.info(f"target_host: {self.target_host}")
         
-        # Use a fresh conversation for code generation to avoid contamination
+        # Select prompt based on action type and use a fresh conversation ID
+        if self.action == "Search":
+            prompt_template = DeepPentestPrompt.write_search
+        else:
+            prompt_template = DeepPentestPrompt.write_code
+
         response, _ = _chat(
-            query=DeepPentestPrompt.write_code.format(
+            query=prompt_template.format(
                 next_task=self.next_task,
                 target_host=self.target_host,
                 user_instruction=self.user_instruction

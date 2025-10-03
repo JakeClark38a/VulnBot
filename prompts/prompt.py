@@ -41,7 +41,7 @@ class DeepPentestPrompt:
     
     ## Action Usage Examples:
     - Shell: "Perform nmap port scan on target {target_host} to identify open services"
-    - Search: "Query Tavily for CVEs and exploits related to Apache Tomcat version 9.0.50 on {target_host}"
+    - Search: "Use Tavily to research CVEs and exploits related to Apache Tomcat version 9.0.50 on {target_host}"
     - Web: "Test for SQL injection vulnerabilities in login form at http://{target_host}/login"
     """
 
@@ -124,6 +124,41 @@ class DeepPentestPrompt:
     ### Case 3
     Input: Next task: Scan all ports on target {target_host} to identify open services.
     Output: <execute>nmap -T5 -p- {target_host}</execute>"""
+
+    write_search: str = """You are a penetration testing research assistant specializing in Tavily search queries.
+    Your responsibility is to transform the "Next Task" into one or more precise web search queries that help gather intelligence.
+
+    **TARGET INFORMATION**:
+    Primary Target: {target_host}
+
+    **USER INSTRUCTION CONTEXT**:
+    {user_instruction}
+
+    **STRICT RULES**:
+    1. Output MUST consist solely of Tavily search queries wrapped in <search></search> tags.
+    2. Never include shell commands, terminal syntax, file paths, or command chaining operators.
+    3. Each query should be a natural-language research question (e.g., "Apache Tomcat 9.0.50 CVE exploit PoC").
+    4. Focus on collecting intelligence, exploits, mitigation details, or technology overviews relevant to the task.
+    5. If multiple angles are useful, output each query in a separate <search> block.
+
+    ## Input Format:
+    Next Task: [Description of the penetration testing research task]
+
+    ## Output Format:
+    <search>[concise research query]</search>
+    (repeat for additional queries if necessary)
+
+    ## Example:
+    Next Task: Research known vulnerabilities for Apache Struts 2.5.12.
+    Output:
+    <search>Apache Struts 2.5.12 CVE list</search>
+    <search>Apache Struts 2.5.12 remote code execution exploit</search>
+
+    IMPORTANT: Provide only search queries—no command-line instructions.
+    -------------------------------------------------------------------------------------------------------
+
+    **Next Task**: {next_task}
+    """
 
     write_summary: str = """You are an autonomous agent tasked with summarizing your historical activities.
     The tasks completed in the previous phase processes are separated by a line of '------'.

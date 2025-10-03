@@ -28,22 +28,41 @@ class ExecuteTask(BaseModel):
     code: List[str]
 
     def parse_response(self) -> list[str]:
+        # Remove reasoning blocks before extracting actionable directives
+        cleaned_instruction = re.sub(r'<think>.*?</think>', '', self.instruction, flags=re.DOTALL | re.IGNORECASE)
 
-        initial_matches = re.findall(
-            r'<execute>\s*(.*?)\s*</execute>', self.instruction, re.DOTALL
-        )
+        tag = "search" if self.action == "Search" else "execute"
+        pattern = rf'<{tag}>\s*(.*?)\s*</{tag}>'
+        initial_matches = re.findall(pattern, cleaned_instruction, re.DOTALL)
+
+        # Fallback for legacy outputs that might still use <execute> tags for search actions
+        if not initial_matches and tag == "search":
+            initial_matches = re.findall(r'<execute>\s*(.*?)\s*</execute>', cleaned_instruction, re.DOTALL)
 
         cleaned_matches = []
         for match in initial_matches:
-
-            if '<execute>' in match:
-                inner_match = re.search(r'<execute>\s*(.*?)$', match)
-                if inner_match:
-                    cleaned_matches.append(inner_match.group(1).strip())
-            else:
-                cleaned_matches.append(match.strip())
+            cleaned_matches.append(match.strip())
 
         return cleaned_matches
+
+    @staticmethod
+    def _is_command_like(query: str) -> bool:
+        lowered = query.strip().lower()
+        if not lowered:
+            return False
+
+        command_delimiters = [';', '&&', '|', '`', '$(', '>>', '<<']
+        if any(delim in lowered for delim in command_delimiters):
+            return True
+
+        command_keywords = {
+            'nmap', 'curl', 'wget', 'ssh', 'sudo', 'ls', 'cat', 'chmod', 'chown', 'rm',
+            'python', 'perl', 'bash', 'sh', 'ftp', 'smbclient', 'gcc', 'apt', 'pip',
+            'dirb', 'gobuster', 'nikto', 'sqlmap', 'hydra', 'nc', 'netcat', 'telnet'
+        }
+
+        first_token = lowered.split()[0]
+        return first_token in command_keywords
 
     def run(self) -> ExecuteResult:
         if Configs.basic_config.mode == Mode.SemiAuto:
@@ -71,18 +90,35 @@ class ExecuteTask(BaseModel):
         """Handle Tavily search operations"""
         result = ""
         search_queries = self.parse_response()
-        self.code = search_queries
+        if not search_queries:
+            logger.warning("No Tavily search queries parsed from instruction")
+            return "No search queries provided."
+
+        executable_queries = []
         logger.info(f"Running Tavily searches: {search_queries}")
         
         try:
-            for i, query in enumerate(search_queries, 1):
-                result += f'Search Query {i}: {query}\n'
+            for i, raw_query in enumerate(search_queries, 1):
+                query = raw_query.strip()
+                if not query:
+                    continue
+
+                if self._is_command_like(query):
+                    warning = f"Rejected query {i}: looks like a shell command -> {query}"
+                    logger.warning(warning)
+                    result += warning + "\n"
+                    continue
+
+                executable_queries.append(query)
+                result += f'Search Query {len(executable_queries)}: {query}\n'
                 search_result = search_security_intelligence(query, max_results=3)
                 result += f'Search Results:\n{search_result}\n\n'
         except Exception as e:
             logger.error(f"Tavily search failed: {e}")
             result = f"Search operation failed: {str(e)}"
-        
+            executable_queries = []
+
+        self.code = executable_queries
         return result
 
     def shell_operation(self):
